@@ -1,0 +1,33 @@
+{
+  "name": "api",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "sh -c 'set -a; . ../../.env; set +a; tsx watch src/index.ts'",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "db:generate": "sh -c 'set -a; . ../../.env; set +a; prisma generate'",
+    "db:migrate": "sh -c 'set -a; . ../../.env; set +a; prisma migrate dev'",
+    "db:push": "sh -c 'set -a; . ../../.env; set +a; prisma db push'",
+    "db:seed": "sh -c 'set -a; . ../../.env; set +a; npx tsx prisma/seed.ts'"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.91.1",
+    "@fastify/cors": "^8.5.0",
+    "@fastify/jwt": "^8.0.1",
+    "@prisma/client": "^5.22.0",
+    "@tradelink/types": "workspace:*",
+    "bcryptjs": "^2.4.3",
+    "fastify": "^4.28.0",
+    "ioredis": "^5.10.1"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/node": "^20.16.0",
+    "prisma": "^5.22.0",
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.0"
+  }
+}

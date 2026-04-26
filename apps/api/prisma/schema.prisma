@@ -1,0 +1,90 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                String             @id @default(cuid())
+  email             String             @unique
+  passwordHash      String
+  name              String
+  createdAt         DateTime           @default(now())
+  clientProfile     ClientProfile?
+  contractorProfile ContractorProfile?
+}
+
+model ClientProfile {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+  jobs      Job[]
+}
+
+model ContractorProfile {
+  id         String          @id @default(cuid())
+  userId     String          @unique
+  user       User            @relation(fields: [userId], references: [id])
+  state      String
+  bio        String?
+  isVerified Boolean         @default(false)
+  createdAt  DateTime        @default(now())
+  trades     TradeCategory[]
+  quotes     Quote[]
+}
+
+model TradeCategory {
+  id          String              @id @default(cuid())
+  name        String              @unique
+  description String
+  icon        String
+  createdAt   DateTime            @default(now())
+  jobs        Job[]
+  contractors ContractorProfile[]
+}
+
+model Job {
+  id          String        @id @default(cuid())
+  title       String
+  description String
+  address     String
+  city        String
+  state       String
+  status      JobStatus     @default(OPEN)
+  clientId    String
+  client      ClientProfile @relation(fields: [clientId], references: [id])
+  categoryId  String
+  category    TradeCategory @relation(fields: [categoryId], references: [id])
+  quotes      Quote[]
+  createdAt   DateTime      @default(now())
+}
+
+enum JobStatus {
+  OPEN
+  IN_REVIEW
+  AWARDED
+  COMPLETED
+  CANCELLED
+}
+
+model Quote {
+  id           String            @id @default(cuid())
+  amount       Float
+  notes        String
+  status       QuoteStatus       @default(PENDING)
+  jobId        String
+  job          Job               @relation(fields: [jobId], references: [id])
+  contractorId String
+  contractor   ContractorProfile @relation(fields: [contractorId], references: [id])
+  createdAt    DateTime          @default(now())
+}
+
+enum QuoteStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}

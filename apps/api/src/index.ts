@@ -1,0 +1,48 @@
+import './types'
+import Fastify from 'fastify'
+import cors from '@fastify/cors'
+import jwt from '@fastify/jwt'
+import type { FastifyRequest, FastifyReply } from 'fastify'
+import type { HealthResponse } from '@tradelink/types'
+import { authRoutes } from './routes/auth'
+import { jobRoutes } from './routes/jobs'
+import { contractorRoutes } from './routes/contractor'
+import { aiRoutes } from './routes/ai'
+
+const app = Fastify({ logger: true })
+
+app.register(cors, {
+  origin: 'http://localhost:5173',
+})
+
+app.register(jwt, {
+  secret: process.env.JWT_SECRET || 'changeme-set-jwt-secret-in-env',
+})
+
+app.decorate('authenticate', async function (request: FastifyRequest, reply: FastifyReply) {
+  try {
+    await request.jwtVerify()
+  } catch (err) {
+    reply.send(err)
+  }
+})
+
+app.get<{ Reply: HealthResponse }>('/health', async () => {
+  return { status: 'ok' }
+})
+
+app.register(authRoutes)
+app.register(jobRoutes)
+app.register(contractorRoutes)
+app.register(aiRoutes)
+
+const start = async () => {
+  try {
+    await app.listen({ port: Number(process.env.PORT) || 3000, host: '0.0.0.0' })
+  } catch (err) {
+    app.log.error(err)
+    process.exit(1)
+  }
+}
+
+start()
