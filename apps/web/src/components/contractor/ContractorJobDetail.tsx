@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
-import type { Job, JobQuote } from '@tradelink/types'
+import type { Job, JobQuote, FileUploadRecord } from '@tradelink/types'
 import { API_URL } from '../../lib/api'
+import { FileUpload } from '../FileUpload'
 
 interface Props {
   jobId: string
@@ -16,6 +17,8 @@ export function ContractorJobDetail({ jobId, onBack }: Props) {
   const [notes, setNotes] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
+  const [quoteFiles, setQuoteFiles] = useState<FileUploadRecord[]>([])
+  const [newQuoteId, setNewQuoteId] = useState<string | null>(null)
 
   const [editing, setEditing] = useState(false)
   const [editAmount, setEditAmount] = useState('')
@@ -58,6 +61,7 @@ export function ContractorJobDetail({ jobId, onBack }: Props) {
       })
       const data = await res.json()
       if (!res.ok) { setSubmitError(data.error ?? 'Failed to submit quote'); return }
+      setNewQuoteId(data.id)
       loadJob()
     } catch {
       setSubmitError('Network error. Please try again.')
@@ -132,6 +136,28 @@ export function ContractorJobDetail({ jobId, onBack }: Props) {
         <p className="text-gray-600 mb-3">{job.description}</p>
         <p className="text-sm text-gray-500">{job.address}, {job.city}, {job.state}</p>
         {job.client && <p className="text-sm text-gray-400 mt-1">Posted by {job.client.user.name}</p>}
+
+        {(job.files ?? []).length > 0 && (
+          <div className="mt-4 pt-4 border-t border-gray-100">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Job Photos</p>
+            <div className="grid grid-cols-4 gap-2">
+              {job.files!.map((f: FileUploadRecord) =>
+                f.mimeType.startsWith('image/') ? (
+                  <img key={f.id} src={f.url} alt={f.filename}
+                    className="w-full aspect-square object-cover rounded-lg border border-gray-200" />
+                ) : f.mimeType.startsWith('video/') ? (
+                  <video key={f.id} src={f.url} controls
+                    className="w-full aspect-square object-cover rounded-lg border border-gray-200 col-span-2" />
+                ) : (
+                  <a key={f.id} href={f.url} target="_blank" rel="noreferrer"
+                    className="flex flex-col items-center justify-center aspect-square bg-gray-50 rounded-lg border border-gray-200 text-xs text-gray-600 p-1 text-center hover:bg-gray-100">
+                    📄 <span className="truncate w-full mt-1">{f.filename}</span>
+                  </a>
+                )
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {myQuote ? (
@@ -207,7 +233,21 @@ export function ContractorJobDetail({ jobId, onBack }: Props) {
               <p className="text-2xl font-bold text-gray-900 mb-1">
                 ${myQuote.amount.toLocaleString()}
               </p>
-              <p className="text-sm text-gray-600 mb-4">{myQuote.notes}</p>
+              <p className="text-sm text-gray-600 mb-3">{myQuote.notes}</p>
+
+              {(myQuote.files ?? []).length > 0 && (
+                <div className="grid grid-cols-4 gap-2 mb-4">
+                  {myQuote.files!.map((f) =>
+                    f.mimeType.startsWith('image/') ? (
+                      <img key={f.id} src={f.url} alt={f.filename} className="w-full aspect-square object-cover rounded-lg border border-yellow-200" />
+                    ) : (
+                      <a key={f.id} href={f.url} target="_blank" rel="noreferrer" className="flex flex-col items-center justify-center aspect-square bg-white/60 rounded-lg border border-yellow-200 text-xs text-gray-600 p-1 text-center">
+                        📄 <span className="truncate w-full">{f.filename}</span>
+                      </a>
+                    ),
+                  )}
+                </div>
+              )}
 
               {myQuote.status === 'ACCEPTED' && (
                 <p className="text-sm font-medium text-green-700">
@@ -293,6 +333,26 @@ export function ContractorJobDetail({ jobId, onBack }: Props) {
               {submitting ? 'Submitting…' : 'Submit Quote'}
             </button>
           </form>
+
+          {newQuoteId && (
+            <div className="mt-5 pt-5 border-t border-gray-200">
+              <p className="text-sm font-medium text-gray-700 mb-3">
+                Add photos or documents to your quote
+              </p>
+              <p className="text-xs text-gray-500 mb-3">Show previous work or attach your license</p>
+              <FileUpload
+                category="QUOTE_PHOTO"
+                quoteId={newQuoteId}
+                existingFiles={quoteFiles}
+                onUploaded={(f) => setQuoteFiles((prev) => [...prev, f])}
+                onRemoved={(id) => setQuoteFiles((prev) => prev.filter((f) => f.id !== id))}
+                maxFiles={10}
+                accept="image/*,application/pdf"
+                label="Add photos of previous work or license PDF"
+                compact
+              />
+            </div>
+          )}
         </div>
       ) : (
         <p className="text-center text-sm text-gray-500 py-8">

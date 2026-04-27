@@ -26,6 +26,25 @@ export interface TradeCategory {
   createdAt: string
 }
 
+export type FileCategory =
+  | 'JOB_PHOTO'
+  | 'JOB_VIDEO'
+  | 'JOB_DOCUMENT'
+  | 'QUOTE_PHOTO'
+  | 'QUOTE_DOCUMENT'
+  | 'PROFILE_PHOTO'
+  | 'PROFILE_DOCUMENT'
+
+export interface FileUploadRecord {
+  id: string
+  url: string
+  filename: string
+  mimeType: string
+  size: number
+  category: FileCategory
+  createdAt: string
+}
+
 export interface JobQuote {
   id: string
   amount: number
@@ -35,6 +54,7 @@ export interface JobQuote {
   contractorId: string
   createdAt: string
   contractor?: { user: { name: string } }
+  files?: FileUploadRecord[]
 }
 
 export type JobStatus = 'OPEN' | 'IN_REVIEW' | 'AWARDED' | 'COMPLETED' | 'CANCELLED'
@@ -53,6 +73,7 @@ export interface Job {
   createdAt: string
   _count?: { quotes: number }
   quotes?: JobQuote[]
+  files?: FileUploadRecord[]
   client?: { user: { name: string } }
 }
 
@@ -79,4 +100,5 @@ export interface ContractorProfileData {
   isVerified: boolean
   createdAt: string
   trades: Pick<TradeCategory, 'id' | 'name' | 'icon'>[]
+  profileFiles?: FileUploadRecord[]
 }

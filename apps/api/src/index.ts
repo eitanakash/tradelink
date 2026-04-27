@@ -2,17 +2,23 @@ import './types'
 import Fastify from 'fastify'
 import cors from '@fastify/cors'
 import jwt from '@fastify/jwt'
+import multipart from '@fastify/multipart'
 import type { FastifyRequest, FastifyReply } from 'fastify'
 import type { HealthResponse } from '@tradelink/types'
 import { authRoutes } from './routes/auth'
 import { jobRoutes } from './routes/jobs'
 import { contractorRoutes } from './routes/contractor'
 import { aiRoutes } from './routes/ai'
+import { uploadRoutes } from './routes/uploads'
 
-const app = Fastify({ logger: true })
+const app = Fastify({ logger: true, bodyLimit: 4 * 1024 * 1024 })
 
 app.register(cors, {
   origin: 'http://localhost:5173',
+})
+
+app.register(multipart, {
+  limits: { fileSize: 50 * 1024 * 1024 },
 })
 
 app.register(jwt, {
@@ -35,6 +41,7 @@ app.register(authRoutes)
 app.register(jobRoutes)
 app.register(contractorRoutes)
 app.register(aiRoutes)
+app.register(uploadRoutes)
 
 const start = async () => {
   try {

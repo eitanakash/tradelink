@@ -52,7 +52,7 @@ const completeIntakeTool = {
         description: 'Overall complexity of the job',
       },
     },
-    required: ['title', 'description', 'scopeOfWork', 'propertyDetails', 'timeline', 'estimatedComplexity'],
+    required: ['title', 'description', 'scopeOfWork', 'propertyDetails', 'timeline', 'specialRequirements', 'estimatedComplexity'],
   },
 }
 
@@ -114,13 +114,13 @@ export async function aiRoutes(app: FastifyInstance) {
     Body: {
       sessionId: string
       message: string
-      attachments?: Array<{ mediaType: string; data: string }>
+      imageUrls?: Array<{ url: string; mimeType: string }>
     }
   }>(
     '/ai/intake/message',
     { onRequest: [app.authenticate] },
     async (request, reply) => {
-      const { sessionId, message, attachments } = request.body
+      const { sessionId, message, imageUrls } = request.body
       if (!sessionId || !message) {
         return reply.status(400).send({ error: 'sessionId and message are required' })
       }
@@ -130,15 +130,20 @@ export async function aiRoutes(app: FastifyInstance) {
 
       const { system } = getIntakePrompt(session.categoryName)
 
-      // Build user content (text + optional images)
+      // Build user content — fetch images from storage and convert to base64 for Claude
       const userContent: any[] = []
-      if (attachments?.length) {
-        for (const att of attachments) {
-          if (att.mediaType.startsWith('image/')) {
+      if (imageUrls?.length) {
+        for (const img of imageUrls) {
+          try {
+            const imgRes = await fetch(img.url)
+            const buffer = await imgRes.arrayBuffer()
+            const base64 = Buffer.from(buffer).toString('base64')
             userContent.push({
               type: 'image',
-              source: { type: 'base64', media_type: att.mediaType, data: att.data },
+              source: { type: 'base64', media_type: img.mimeType, data: base64 },
             })
+          } catch {
+            // skip images that can't be fetched
           }
         }
       }
@@ -251,6 +256,12 @@ export async function aiRoutes(app: FastifyInstance) {
           categoryId: session.categoryId,
           clientId: clientProfile.id,
         },
+      })
+
+      // Link any files uploaded during this intake session to the new job
+      await prisma.fileUpload.updateMany({
+        where: { sessionId },
+        data: { jobId: job.id },
       })
 
       await redis.del(`intake:${sessionId}`)
