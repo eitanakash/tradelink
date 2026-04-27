@@ -13,7 +13,6 @@ export async function contractorsRoutes(app: FastifyInstance) {
 
       const contractors = await prisma.contractorProfile.findMany({
         where: {
-          slug: { not: null },
           ...(state ? { state } : {}),
           ...(trade ? { trades: { some: { id: trade } } } : {}),
         },
@@ -38,7 +37,6 @@ export async function contractorsRoutes(app: FastifyInstance) {
 
       const total = await prisma.contractorProfile.count({
         where: {
-          slug: { not: null },
           ...(state ? { state } : {}),
           ...(trade ? { trades: { some: { id: trade } } } : {}),
         },
@@ -54,8 +52,8 @@ export async function contractorsRoutes(app: FastifyInstance) {
     async (request, reply) => {
       const { slug } = request.params
 
-      const contractor = await prisma.contractorProfile.findUnique({
-        where: { slug },
+      const contractor = await prisma.contractorProfile.findFirst({
+        where: { OR: [{ slug }, { id: slug }] },
         include: {
           user: { select: { name: true } },
           trades: { select: { id: true, name: true, icon: true } },
@@ -109,7 +107,7 @@ export async function contractorsRoutes(app: FastifyInstance) {
     { onRequest: [app.authenticate] },
     async (request, reply) => {
       const { id } = request.params
-      const userId = (request.user as any).userId
+      const userId = (request.user as any).id
 
       const job = await prisma.job.findUnique({
         where: { id },
@@ -184,7 +182,7 @@ export async function contractorsRoutes(app: FastifyInstance) {
     { onRequest: [app.authenticate] },
     async (request, reply) => {
       const { id } = request.params
-      const userId = (request.user as any).userId
+      const userId = (request.user as any).id
 
       const review = await prisma.review.findUnique({
         where: { id },

@@ -2,7 +2,7 @@
   "name": "tradelink",
   "private": true,
   "scripts": {
-    "dev": "concurrently \"pnpm --filter api dev\" \"pnpm --filter web dev\"",
+    "dev": "concurrently \"pnpm --filter api dev\" \"pnpm --filter web dev\" \"pnpm --filter @tradelink/admin dev\"",
     "build": "pnpm -r build"
   },
   "devDependencies": {

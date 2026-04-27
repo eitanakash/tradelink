@@ -4,6 +4,14 @@ import { prisma } from '../lib/prisma'
 import { redis } from '../lib/redis'
 import { anthropic } from '../lib/anthropic'
 import { getIntakePrompt } from '../prompts/intake'
+import OpenAI, { toFile } from 'openai'
+
+const openai = process.env.OPENAI_API_KEY
+  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+  : null
+
+const WHISPER_PROMPT =
+  'This is a conversation about home services including HVAC, plumbing, electrical, roofing, carpentry, and general construction.'
 
 const SESSION_TTL = 60 * 60 * 2 // 2 hours
 
@@ -267,6 +275,49 @@ export async function aiRoutes(app: FastifyInstance) {
       await redis.del(`intake:${sessionId}`)
 
       return { jobId: job.id }
+    },
+  )
+
+  // POST /ai/transcribe — Whisper speech-to-text
+  app.post(
+    '/ai/transcribe',
+    { onRequest: [app.authenticate] },
+    async (request, reply) => {
+      if (!openai) {
+        return reply.status(503).send({ error: 'Speech transcription is not configured.' })
+      }
+
+      const data = await request.file()
+      if (!data) return reply.status(400).send({ error: 'No audio file provided' })
+
+      const language = (data.fields as any)?.language?.value ?? 'en'
+
+      const chunks: Buffer[] = []
+      for await (const chunk of data.file) chunks.push(chunk)
+      const buffer = Buffer.concat(chunks)
+
+      if (buffer.length > 25 * 1024 * 1024) {
+        return reply.status(400).send({ error: 'Audio file too large (max 25 MB)' })
+      }
+
+      const ext = data.mimetype.includes('mp4') ? 'mp4'
+        : data.mimetype.includes('ogg') ? 'ogg'
+        : data.mimetype.includes('wav') ? 'wav'
+        : 'webm'
+
+      try {
+        const transcription = await openai.audio.transcriptions.create({
+          file: await toFile(buffer, `audio.${ext}`, { type: data.mimetype }),
+          model: 'whisper-1',
+          language,
+          prompt: WHISPER_PROMPT,
+        })
+        console.log(`[transcribe] lang=${language} chars=${transcription.text.length}`)
+        return { transcript: transcription.text }
+      } catch (err: any) {
+        console.error('[transcribe] error:', err?.message)
+        return reply.status(500).send({ error: 'Transcription failed. Please try again.' })
+      }
     },
   )
 }

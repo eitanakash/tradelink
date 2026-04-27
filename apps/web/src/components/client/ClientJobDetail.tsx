@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { Job, JobQuote, TradeCategory, FileUploadRecord, QuoteQuestion } from '@tradelink/types'
 import { API_URL } from '../../lib/api'
 import { US_STATES } from '../../lib/states'
 import { formatDateTime } from '../../lib/date'
 import { FileUpload } from '../FileUpload'
 import { QuoteTierCard } from '../QuoteTierCard'
+import { ReviewModal } from '../reviews/ReviewModal'
 
 const STATUS_COLORS: Record<string, string> = {
   OPEN: 'bg-green-100 text-green-700',
@@ -21,6 +23,7 @@ interface Props {
   onBack: () => void
   onDeleted: () => void
   onOpenConversation?: (conversationId: string) => void
+  onSelectContractor?: (slug: string) => void
 }
 
 function renderInline(text: string) {
@@ -54,7 +57,8 @@ function MarkdownView({ text }: { text: string }) {
   )
 }
 
-export function ClientJobDetail({ jobId, onBack, onDeleted, onOpenConversation }: Props) {
+export function ClientJobDetail({ jobId, onBack, onDeleted, onOpenConversation, onSelectContractor }: Props) {
+  const { t } = useTranslation()
   const [job, setJob] = useState<Job | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -91,6 +95,10 @@ export function ClientJobDetail({ jobId, onBack, onDeleted, onOpenConversation }
   const [aiError, setAiError] = useState('')
   const [followUp, setFollowUp] = useState('')
 
+  // Completion + review state
+  const [markingComplete, setMarkingComplete] = useState(false)
+  const [showReviewModal, setShowReviewModal] = useState(false)
+
   const token = localStorage.getItem('token')
 
   const loadJob = () => {
@@ -115,10 +123,10 @@ export function ClientJobDetail({ jobId, onBack, onDeleted, onOpenConversation }
             setExpandedQuotes(new Set(pending.map((q: JobQuote) => q.id)))
           }
         } else {
-          setError(data.error ?? 'Failed to load job')
+          setError(data.error ?? t('clientJobDetail.failedLoad'))
         }
       })
-      .catch(() => setError('Network error'))
+      .catch(() => setError(t('clientJobDetail.networkError')))
       .finally(() => setLoading(false))
   }
 
@@ -251,8 +259,21 @@ export function ClientJobDetail({ jobId, onBack, onDeleted, onOpenConversation }
     }
   }
 
-  if (loading) return <div className="text-center py-20 text-gray-400">Loading…</div>
-  if (error || !job) return <div className="text-center py-20 text-red-500">{error || 'Job not found'}</div>
+  const handleMarkComplete = async () => {
+    setMarkingComplete(true)
+    try {
+      const res = await fetch(`${API_URL}/jobs/${jobId}/complete`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (res.ok) loadJob()
+    } finally {
+      setMarkingComplete(false)
+    }
+  }
+
+  if (loading) return <div className="text-center py-20 text-gray-400">{t('common.loading')}</div>
+  if (error || !job) return <div className="text-center py-20 text-red-500">{error || t('common.jobNotFound')}</div>
 
   const pendingQuotes = job.quotes?.filter((q) => q.status === 'PENDING') ?? []
   const otherQuotes = job.quotes?.filter((q) => q.status !== 'PENDING') ?? []
@@ -265,13 +286,13 @@ export function ClientJobDetail({ jobId, onBack, onDeleted, onOpenConversation }
   return (
     <div>
       <button onClick={onBack} className="text-sm text-blue-600 hover:underline mb-6 flex items-center gap-1">
-        ← Back to jobs
+        {t('clientJobDetail.backToJobs')}
       </button>
 
       {/* Job card */}
       {editing ? (
         <div className="bg-white border border-gray-200 rounded-2xl p-6 mb-6">
-          <h3 className="font-semibold text-gray-900 mb-4">Edit Job</h3>
+          <h3 className="font-semibold text-gray-900 mb-4">{t('clientJobDetail.editJob')}</h3>
           {saveError && (
             <div className="mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
               {saveError}
@@ -279,7 +300,7 @@ export function ClientJobDetail({ jobId, onBack, onDeleted, onOpenConversation }
           )}
           <form onSubmit={handleSaveEdit} className="space-y-4">
             <div>
-              <label className={labelCls}>Category</label>
+              <label className={labelCls}>{t('clientJobDetail.category')}</label>
               <select value={editCategoryId} onChange={(e) => setEditCategoryId(e.target.value)} className={inputCls}>
                 {categories.map((c) => (
                   <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
@@ -287,29 +308,29 @@ export function ClientJobDetail({ jobId, onBack, onDeleted, onOpenConversation }
               </select>
             </div>
             <div>
-              <label className={labelCls}>Title</label>
+              <label className={labelCls}>{t('clientJobDetail.title')}</label>
               <input type="text" required value={editTitle}
                 onChange={(e) => setEditTitle(e.target.value)} className={inputCls} />
             </div>
             <div>
-              <label className={labelCls}>Description</label>
+              <label className={labelCls}>{t('clientJobDetail.description')}</label>
               <textarea required value={editDescription}
                 onChange={(e) => setEditDescription(e.target.value)}
                 rows={3} className={inputCls + ' resize-none'} />
             </div>
             <div>
-              <label className={labelCls}>Street address</label>
+              <label className={labelCls}>{t('clientJobDetail.streetAddress')}</label>
               <input type="text" required value={editAddress}
                 onChange={(e) => setEditAddress(e.target.value)} className={inputCls} />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className={labelCls}>City</label>
+                <label className={labelCls}>{t('clientJobDetail.city')}</label>
                 <input type="text" required value={editCity}
                   onChange={(e) => setEditCity(e.target.value)} className={inputCls} />
               </div>
               <div>
-                <label className={labelCls}>State</label>
+                <label className={labelCls}>{t('clientJobDetail.state')}</label>
                 <select value={editState} onChange={(e) => setEditState(e.target.value)} className={inputCls}>
                   {US_STATES.map((s) => (
                     <option key={s.code} value={s.code}>{s.name}</option>
@@ -320,11 +341,11 @@ export function ClientJobDetail({ jobId, onBack, onDeleted, onOpenConversation }
             <div className="flex gap-3 pt-1">
               <button type="button" onClick={() => setEditing(false)}
                 className="flex-1 py-2.5 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors">
-                Cancel
+                {t('clientJobDetail.cancelEdit')}
               </button>
               <button type="submit" disabled={saving}
                 className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-sm font-semibold rounded-lg transition-colors">
-                {saving ? 'Saving…' : 'Save Changes'}
+                {saving ? t('clientJobDetail.saving') : t('clientJobDetail.saveChanges')}
               </button>
             </div>
           </form>
@@ -355,14 +376,14 @@ export function ClientJobDetail({ jobId, onBack, onDeleted, onOpenConversation }
               </button>
               {confirmDelete ? (
                 <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-600">Delete this job?</span>
+                  <span className="text-sm text-gray-600">{t('clientJobDetail.deleteJob')}</span>
                   <button onClick={handleDelete} disabled={deleting}
                     className="px-3 py-1.5 bg-red-600 hover:bg-red-700 disabled:bg-red-300 text-white text-sm font-medium rounded-lg transition-colors">
-                    {deleting ? '…' : 'Yes, delete'}
+                    {deleting ? '…' : t('clientJobDetail.yesDelete')}
                   </button>
                   <button onClick={() => setConfirmDelete(false)}
                     className="px-3 py-1.5 text-sm font-medium text-gray-500 hover:text-gray-700">
-                    Cancel
+                    {t('clientJobDetail.cancelEdit')}
                   </button>
                 </div>
               ) : (
@@ -379,8 +400,8 @@ export function ClientJobDetail({ jobId, onBack, onDeleted, onOpenConversation }
       {/* Job media */}
       {canEdit(job.status) && (
         <div className="mb-6">
-          <h3 className="font-semibold text-gray-900 mb-1">Photos & Documents</h3>
-          <p className="text-sm text-gray-500 mb-3">Help contractors understand the job</p>
+          <h3 className="font-semibold text-gray-900 mb-1">{t('clientJobDetail.photosDocuments')}</h3>
+          <p className="text-sm text-gray-500 mb-3">{t('clientJobDetail.photosDocumentsHelp')}</p>
           <FileUpload
             category="JOB_PHOTO"
             jobId={jobId}
@@ -389,13 +410,13 @@ export function ClientJobDetail({ jobId, onBack, onDeleted, onOpenConversation }
             onRemoved={(id) => setJobFiles((prev) => prev.filter((f) => f.id !== id))}
             maxFiles={20}
             accept="image/*,application/pdf,video/mp4,video/quicktime"
-            label="Add photos, videos or documents"
+            label={t('clientJobDetail.addPhotos')}
           />
         </div>
       )}
       {!canEdit(job.status) && jobFiles.length > 0 && (
         <div className="mb-6">
-          <h3 className="font-semibold text-gray-900 mb-3">Attachments</h3>
+          <h3 className="font-semibold text-gray-900 mb-3">{t('clientJobDetail.attachments')}</h3>
           <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
             {jobFiles.map((f: FileUploadRecord) =>
               f.mimeType.startsWith('image/') ? (
@@ -436,10 +457,74 @@ export function ClientJobDetail({ jobId, onBack, onDeleted, onOpenConversation }
         </div>
       )}
 
+      {/* Completion flow */}
+      {(job.status === 'AWARDED' || job.status === 'COMPLETED') && (() => {
+        const acceptedQuote = job.quotes?.find((q) => q.status === 'ACCEPTED')
+        const contractorName = acceptedQuote?.contractor?.user.name ?? 'Contractor'
+        const contractorSlug = acceptedQuote?.contractor?.slug
+        return (
+          <div className={`mb-6 rounded-2xl border p-5 ${job.status === 'COMPLETED' ? 'border-green-200 bg-green-50' : 'border-blue-200 bg-blue-50/40'}`}>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="font-semibold text-gray-900 mb-1">
+                  {job.status === 'COMPLETED' ? t('clientJobDetail.jobCompleted') : t('clientJobDetail.jobInProgress')}
+                </h3>
+                {job.status === 'AWARDED' && (
+                  <p className="text-sm text-gray-600">
+                    {t('clientJobDetail.workingWith', { name: contractorName })}
+                    {job.clientMarkedComplete
+                      ? ' ' + t('clientJobDetail.waitingForContractor')
+                      : ' ' + t('clientJobDetail.markWhenDone')}
+                  </p>
+                )}
+                {job.status === 'COMPLETED' && (
+                  <p className="text-sm text-gray-600">
+                    {t('clientJobDetail.completedWith', { date: job.completedAt ? formatDateTime(job.completedAt) : '', name: contractorName })}
+                  </p>
+                )}
+              </div>
+              <div className="flex flex-col gap-2 shrink-0">
+                {contractorSlug && onSelectContractor && (
+                  <button
+                    onClick={() => onSelectContractor(contractorSlug)}
+                    className="text-sm font-medium text-blue-600 hover:underline"
+                  >
+                    {t('clientJobDetail.viewProfile')}
+                  </button>
+                )}
+              </div>
+            </div>
+            {job.status === 'AWARDED' && !job.clientMarkedComplete && (
+              <button
+                onClick={handleMarkComplete}
+                disabled={markingComplete}
+                className="mt-3 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white text-sm font-semibold rounded-lg transition-colors"
+              >
+                {markingComplete ? '…' : t('clientJobDetail.markComplete')}
+              </button>
+            )}
+            {job.status === 'AWARDED' && job.clientMarkedComplete && (
+              <div className="mt-3 text-sm text-blue-700 font-medium">{t('clientJobDetail.waitingForContractorMark', { name: contractorName })}</div>
+            )}
+            {job.status === 'COMPLETED' && !job.review && (
+              <button
+                onClick={() => setShowReviewModal(true)}
+                className="mt-3 px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white text-sm font-semibold rounded-lg transition-colors"
+              >
+                {t('clientJobDetail.leaveReview')}
+              </button>
+            )}
+            {job.status === 'COMPLETED' && job.review && (
+              <div className="mt-3 text-sm text-green-700">{t('clientJobDetail.reviewLeft')}</div>
+            )}
+          </div>
+        )
+      })()}
+
       {/* Quotes header + AI panel toggle */}
       <div className="flex items-center justify-between mb-3">
         <h3 className="font-semibold text-gray-900">
-          Quotes ({job.quotes?.length ?? 0})
+          {t('clientJobDetail.quotes', { count: job.quotes?.length ?? 0 })}
         </h3>
         {(job.quotes?.length ?? 0) > 0 && (
           <button
@@ -450,7 +535,7 @@ export function ClientJobDetail({ jobId, onBack, onDeleted, onOpenConversation }
                 : 'bg-white border border-gray-300 text-gray-600 hover:bg-gray-50'
             }`}
           >
-            ✦ AI Analysis
+            {t('clientJobDetail.aiAnalysis')}
           </button>
         )}
       </div>
@@ -460,10 +545,10 @@ export function ClientJobDetail({ jobId, onBack, onDeleted, onOpenConversation }
         <div className="mb-6 bg-gradient-to-br from-violet-50 to-indigo-50 border border-violet-200 rounded-2xl p-5">
           <div className="flex items-center gap-2 mb-3">
             <span className="text-violet-600 text-lg">✦</span>
-            <h4 className="font-semibold text-violet-900">AI Quote Analysis</h4>
+            <h4 className="font-semibold text-violet-900">{t('clientJobDetail.aiQuoteAnalysis')}</h4>
           </div>
           <p className="text-sm text-violet-700/80 mb-4">
-            Get an unbiased breakdown of all quotes — pricing, value, risks, and a recommendation.
+            {t('clientJobDetail.aiAnalysisDesc')}
           </p>
 
           {aiError && (
@@ -484,7 +569,7 @@ export function ClientJobDetail({ jobId, onBack, onDeleted, onOpenConversation }
               disabled={aiLoading}
               className="w-full py-2.5 bg-violet-600 hover:bg-violet-700 disabled:bg-violet-400 text-white text-sm font-semibold rounded-xl transition-colors mb-3"
             >
-              {aiLoading ? 'Analyzing…' : 'Analyze Quotes'}
+              {aiLoading ? t('clientJobDetail.analyzing') : t('clientJobDetail.analyzeQuotes')}
             </button>
           )}
 
@@ -497,7 +582,7 @@ export function ClientJobDetail({ jobId, onBack, onDeleted, onOpenConversation }
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && followUp.trim()) handleAnalyze(followUp.trim())
                 }}
-                placeholder="Ask a follow-up question…"
+                placeholder={t('clientJobDetail.askFollowUp')}
                 className="flex-1 px-3 py-2 bg-white border border-violet-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
               />
               <button
@@ -505,7 +590,7 @@ export function ClientJobDetail({ jobId, onBack, onDeleted, onOpenConversation }
                 disabled={aiLoading || !followUp.trim()}
                 className="px-4 py-2 bg-violet-600 hover:bg-violet-700 disabled:bg-violet-300 text-white text-sm font-semibold rounded-lg transition-colors"
               >
-                {aiLoading ? '…' : 'Ask'}
+                {aiLoading ? '…' : t('clientJobDetail.ask')}
               </button>
             </div>
           )}
@@ -514,7 +599,7 @@ export function ClientJobDetail({ jobId, onBack, onDeleted, onOpenConversation }
 
       {/* Empty state */}
       {allQuotes.length === 0 && (
-        <p className="text-sm text-gray-500 py-8 text-center">No quotes yet. Check back soon.</p>
+        <p className="text-sm text-gray-500 py-8 text-center">{t('clientJobDetail.noQuotesYet')}</p>
       )}
 
       {/* Quote cards */}
@@ -522,9 +607,9 @@ export function ClientJobDetail({ jobId, onBack, onDeleted, onOpenConversation }
         {allQuotes.map((quote) => {
           const isExpanded = expandedQuotes.has(quote.id)
           const selectedTierId = selectedTierIds[quote.id]
-          const selectedTier = quote.tiers.find((t) => t.id === selectedTierId) ?? quote.tiers[0]
-          const lowestPrice = quote.tiers.length > 0 ? Math.min(...quote.tiers.map((t) => t.price)) : null
-          const highestPrice = quote.tiers.length > 0 ? Math.max(...quote.tiers.map((t) => t.price)) : null
+          const selectedTier = quote.tiers.find((tier) => tier.id === selectedTierId) ?? quote.tiers[0]
+          const lowestPrice = quote.tiers.length > 0 ? Math.min(...quote.tiers.map((tier) => tier.price)) : null
+          const highestPrice = quote.tiers.length > 0 ? Math.max(...quote.tiers.map((tier) => tier.price)) : null
 
           return (
             <div
@@ -538,8 +623,8 @@ export function ClientJobDetail({ jobId, onBack, onDeleted, onOpenConversation }
               }`}
             >
               {/* Quote header — always visible */}
-              <button
-                className="w-full text-left p-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
+              <div
+                className="w-full text-left p-4 flex items-center justify-between hover:bg-gray-50 transition-colors cursor-pointer"
                 onClick={() =>
                   setExpandedQuotes((prev) => {
                     const next = new Set(prev)
@@ -551,9 +636,18 @@ export function ClientJobDetail({ jobId, onBack, onDeleted, onOpenConversation }
               >
                 <div className="flex items-center gap-3">
                   <div>
-                    <p className="font-semibold text-gray-900 text-sm">
-                      {quote.contractor?.user.name ?? 'Contractor'}
-                    </p>
+                    {onSelectContractor && quote.contractor?.slug ? (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onSelectContractor(quote.contractor!.slug!) }}
+                        className="font-semibold text-blue-600 hover:underline text-sm text-left"
+                      >
+                        {quote.contractor.user.name}
+                      </button>
+                    ) : (
+                      <p className="font-semibold text-gray-900 text-sm">
+                        {quote.contractor?.user.name ?? 'Contractor'}
+                      </p>
+                    )}
                     {lowestPrice !== null && (
                       <p className="text-xs text-gray-500 mt-0.5">
                         {lowestPrice === highestPrice
@@ -579,21 +673,21 @@ export function ClientJobDetail({ jobId, onBack, onDeleted, onOpenConversation }
                   </span>
                   <span className="text-gray-400 text-sm">{isExpanded ? '▲' : '▼'}</span>
                 </div>
-              </button>
+              </div>
 
               {/* Expanded content */}
               {isExpanded && (
                 <div className="px-4 pb-4 border-t border-gray-100">
                   {/* Cover letter */}
                   <div className="pt-4 mb-4">
-                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Cover Letter</p>
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">{t('clientJobDetail.coverLetter')}</p>
                     <p className="text-sm text-gray-700 leading-relaxed">{quote.coverLetter}</p>
                   </div>
 
                   {/* Tier tabs + card */}
                   {quote.tiers.length > 0 && (
                     <div className="mb-4">
-                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Pricing Options</p>
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">{t('clientJobDetail.pricingOptions')}</p>
                       {quote.tiers.length > 1 && (
                         <div className="flex gap-1.5 mb-3 flex-wrap">
                           {quote.tiers.map((tier) => (
@@ -621,7 +715,7 @@ export function ClientJobDetail({ jobId, onBack, onDeleted, onOpenConversation }
                   {quote.questions.length > 0 && (
                     <div className="mb-4">
                       <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                        Contractor Questions
+                        {t('clientJobDetail.contractorQuestions')}
                       </p>
                       <div className="space-y-3">
                         {quote.questions.map((q: QuoteQuestion) => (
@@ -640,7 +734,7 @@ export function ClientJobDetail({ jobId, onBack, onDeleted, onOpenConversation }
                                   onKeyDown={(e) => {
                                     if (e.key === 'Enter') handleAnswerQuestion(quote.id, q)
                                   }}
-                                  placeholder="Type your answer…"
+                                  placeholder={t('clientJobDetail.typeAnswer')}
                                   className="flex-1 px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                 />
                                 <button
@@ -661,7 +755,7 @@ export function ClientJobDetail({ jobId, onBack, onDeleted, onOpenConversation }
                   {/* Files */}
                   {(quote.files ?? []).length > 0 && (
                     <div className="mb-4">
-                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Portfolio</p>
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">{t('clientJobDetail.portfolio')}</p>
                       <div className="grid grid-cols-4 gap-1.5">
                         {quote.files!.map((f: FileUploadRecord) =>
                           f.mimeType.startsWith('image/') ? (
@@ -700,15 +794,15 @@ export function ClientJobDetail({ jobId, onBack, onDeleted, onOpenConversation }
                         {actioning === quote.id
                           ? '…'
                           : selectedTier
-                          ? `Accept — ${selectedTier.name} ($${selectedTier.price.toLocaleString()})`
-                          : 'Accept'}
+                          ? t('clientJobDetail.acceptTier', { tier: selectedTier.name, price: selectedTier.price.toLocaleString() })
+                          : t('clientJobDetail.accept')}
                       </button>
                       <button
                         onClick={() => handleReject(quote)}
                         disabled={actioning === quote.id}
                         className="px-5 py-2 bg-white hover:bg-gray-50 text-gray-700 text-sm font-medium rounded-xl border border-gray-300 transition-colors"
                       >
-                        Decline
+                        {t('clientJobDetail.decline')}
                       </button>
                       {onOpenConversation && quote.contractor && (
                         <button
@@ -734,7 +828,7 @@ export function ClientJobDetail({ jobId, onBack, onDeleted, onOpenConversation }
                         >
                           {startingConv === quote.id
                             ? '…'
-                            : `Message ${quote.contractor.user.name.split(' ')[0]}`}
+                            : t('clientJobDetail.message', { name: quote.contractor.user.name.split(' ')[0] })}
                         </button>
                       )}
                     </div>
@@ -742,8 +836,9 @@ export function ClientJobDetail({ jobId, onBack, onDeleted, onOpenConversation }
 
                   {quote.status === 'ACCEPTED' && (
                     <div className="rounded-lg bg-green-100 px-4 py-2.5 text-sm font-medium text-green-800">
-                      ✓ You accepted this quote
-                      {selectedTier && ` — ${selectedTier.name} tier`}
+                      {selectedTier
+                        ? t('clientJobDetail.youAcceptedTier', { tier: selectedTier.name })
+                        : t('clientJobDetail.youAccepted')}
                     </div>
                   )}
                 </div>
@@ -752,6 +847,19 @@ export function ClientJobDetail({ jobId, onBack, onDeleted, onOpenConversation }
           )
         })}
       </div>
+
+      {showReviewModal && job.status === 'COMPLETED' && (() => {
+        const acceptedQuote = job.quotes?.find((q) => q.status === 'ACCEPTED')
+        return (
+          <ReviewModal
+            jobId={jobId}
+            jobTitle={job.title}
+            contractorName={acceptedQuote?.contractor?.user.name ?? 'Contractor'}
+            onClose={() => setShowReviewModal(false)}
+            onSubmitted={() => { setShowReviewModal(false); loadJob() }}
+          />
+        )
+      })()}
     </div>
   )
 }
