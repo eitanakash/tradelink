@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
-import type { Job, JobQuote, TradeCategory } from '@tradelink/types'
+import type { Job, JobQuote, TradeCategory, FileUploadRecord } from '@tradelink/types'
 import { API_URL } from '../../lib/api'
 import { US_STATES } from '../../lib/states'
+import { FileUpload } from '../FileUpload'
 
 const STATUS_COLORS: Record<string, string> = {
   OPEN: 'bg-green-100 text-green-700',
@@ -44,6 +45,8 @@ export function ClientJobDetail({ jobId, onBack, onDeleted }: Props) {
 
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
+  const [jobFiles, setJobFiles] = useState<FileUploadRecord[]>([])
 
   const token = localStorage.getItem('token')
 
@@ -54,7 +57,7 @@ export function ClientJobDetail({ jobId, onBack, onDeleted }: Props) {
     })
       .then((r) => r.json())
       .then((data) => {
-        if (data.id) setJob(data)
+        if (data.id) { setJob(data); setJobFiles(data.files ?? []) }
         else setError(data.error ?? 'Failed to load job')
       })
       .catch(() => setError('Network error'))
@@ -303,6 +306,76 @@ export function ClientJobDetail({ jobId, onBack, onDeleted }: Props) {
         </div>
       )}
 
+      {/* Job media */}
+      {canEdit(job.status) && (
+        <div className="mb-6">
+          <h3 className="font-semibold text-gray-900 mb-1">Photos & Documents</h3>
+          <p className="text-sm text-gray-500 mb-3">Help contractors understand the job</p>
+          <FileUpload
+            category="JOB_PHOTO"
+            jobId={jobId}
+            existingFiles={jobFiles}
+            onUploaded={(f) => setJobFiles((prev) => [...prev, f])}
+            onRemoved={(id) => setJobFiles((prev) => prev.filter((f) => f.id !== id))}
+            maxFiles={20}
+            accept="image/*,application/pdf,video/mp4,video/quicktime"
+            label="Add photos, videos or documents"
+          />
+        </div>
+      )}
+      {!canEdit(job.status) && jobFiles.length > 0 && (
+        <div className="mb-6">
+          <h3 className="font-semibold text-gray-900 mb-3">Attachments</h3>
+          <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+            {jobFiles.map((f: FileUploadRecord) => {
+              if (f.mimeType.startsWith('image/')) {
+                return (
+                  <button key={f.id} onClick={() => setLightboxUrl(f.url)}
+                    className="aspect-square rounded-xl overflow-hidden border border-gray-200 hover:opacity-90 transition-opacity">
+                    <img src={f.url} alt={f.filename} className="w-full h-full object-cover" />
+                  </button>
+                )
+              }
+              if (f.mimeType.startsWith('video/')) {
+                return (
+                  <div key={f.id} className="aspect-square rounded-xl overflow-hidden border border-gray-200 col-span-2">
+                    <video src={f.url} controls className="w-full h-full object-cover" />
+                  </div>
+                )
+              }
+              return (
+                <a key={f.id} href={f.url} target="_blank" rel="noreferrer"
+                  className="aspect-square flex flex-col items-center justify-center gap-1 rounded-xl border border-gray-200 bg-gray-50 hover:bg-gray-100 transition-colors p-2">
+                  <span className="text-2xl">📄</span>
+                  <span className="text-xs text-gray-500 text-center truncate w-full px-1">{f.filename}</span>
+                </a>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Lightbox */}
+      {lightboxUrl && (
+        <div
+          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
+          onClick={() => setLightboxUrl(null)}
+        >
+          <img
+            src={lightboxUrl}
+            alt=""
+            className="max-w-full max-h-full rounded-xl object-contain"
+            onClick={(e) => e.stopPropagation()}
+          />
+          <button
+            onClick={() => setLightboxUrl(null)}
+            className="absolute top-4 right-4 w-9 h-9 bg-white/20 hover:bg-white/30 text-white rounded-full flex items-center justify-center text-lg"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* Quotes */}
       <h3 className="font-semibold text-gray-900 mb-3">
         Quotes ({job.quotes?.length ?? 0})
@@ -335,6 +408,32 @@ export function ClientJobDetail({ jobId, onBack, onDeleted }: Props) {
               </span>
             </div>
             <p className="text-sm text-gray-600 mb-3">{quote.notes}</p>
+            {(quote.files ?? []).length > 0 && (
+              <div className="grid grid-cols-4 gap-1.5 mb-3">
+                {quote.files!.map((f: FileUploadRecord) =>
+                  f.mimeType.startsWith('image/') ? (
+                    <button
+                      key={f.id}
+                      onClick={() => setLightboxUrl(f.url)}
+                      className="aspect-square rounded-lg overflow-hidden border border-gray-200 hover:opacity-90 transition-opacity"
+                    >
+                      <img src={f.url} alt={f.filename} className="w-full h-full object-cover" />
+                    </button>
+                  ) : (
+                    <a
+                      key={f.id}
+                      href={f.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="aspect-square flex flex-col items-center justify-center gap-1 rounded-lg border border-gray-200 bg-white/60 hover:bg-gray-50 transition-colors p-1"
+                    >
+                      <span className="text-xl">📄</span>
+                      <span className="text-xs text-gray-500 truncate w-full text-center">{f.filename}</span>
+                    </a>
+                  ),
+                )}
+              </div>
+            )}
             {quote.status === 'PENDING' && job.status !== 'AWARDED' && (
               <div className="flex gap-2">
                 <button

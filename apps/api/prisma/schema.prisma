@@ -60,6 +60,7 @@ model Job {
   categoryId  String
   category    TradeCategory @relation(fields: [categoryId], references: [id])
   quotes      Quote[]
+  files       FileUpload[]
   createdAt   DateTime      @default(now())
 }
 
@@ -80,6 +81,7 @@ model Quote {
   job          Job               @relation(fields: [jobId], references: [id])
   contractorId String
   contractor   ContractorProfile @relation(fields: [contractorId], references: [id])
+  files        FileUpload[]
   createdAt    DateTime          @default(now())
 }
 
@@ -87,4 +89,32 @@ enum QuoteStatus {
   PENDING
   ACCEPTED
   REJECTED
+}
+
+model FileUpload {
+  id           String       @id @default(cuid())
+  url          String
+  key          String
+  filename     String
+  mimeType     String
+  size         Int
+  category     FileCategory
+  uploadedById String
+  jobId        String?
+  quoteId      String?
+  sessionId    String?
+  createdAt    DateTime     @default(now())
+
+  job   Job?   @relation(fields: [jobId], references: [id])
+  quote Quote? @relation(fields: [quoteId], references: [id])
+}
+
+enum FileCategory {
+  JOB_PHOTO
+  JOB_VIDEO
+  JOB_DOCUMENT
+  QUOTE_PHOTO
+  QUOTE_DOCUMENT
+  PROFILE_PHOTO
+  PROFILE_DOCUMENT
 }

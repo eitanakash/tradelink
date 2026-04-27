@@ -21,7 +21,16 @@ export async function contractorRoutes(app: FastifyInstance) {
         include: { trades: { select: { id: true, name: true, icon: true } } },
       })
       if (!contractor) return reply.status(404).send({ error: 'Contractor profile not found' })
-      return contractor
+
+      const profileFiles = await prisma.fileUpload.findMany({
+        where: {
+          uploadedById: request.user.id,
+          category: { in: ['PROFILE_PHOTO', 'PROFILE_DOCUMENT'] },
+        },
+        orderBy: { createdAt: 'asc' },
+      })
+
+      return { ...contractor, profileFiles }
     },
   )
 

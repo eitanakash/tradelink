@@ -30,6 +30,11 @@ interface EditJobBody {
 
 export async function jobRoutes(app: FastifyInstance) {
   app.get('/categories', async () => {
+    console.log('Getting categories')
+    console.log('Getting categories')
+    console.log('Getting categories')
+    console.log('Getting categories')
+    console.log('Getting categories')
     return prisma.tradeCategory.findMany({ orderBy: { name: 'asc' } })
   })
 
@@ -116,8 +121,12 @@ export async function jobRoutes(app: FastifyInstance) {
         include: {
           category: true,
           client: { select: { user: { select: { name: true } } } },
+          files: { orderBy: { createdAt: 'asc' } },
           quotes: {
-            include: { contractor: { select: { user: { select: { name: true } } } } },
+            include: {
+              contractor: { select: { user: { select: { name: true } } } },
+              files: { orderBy: { createdAt: 'asc' } },
+            },
             orderBy: { createdAt: 'asc' },
           },
         },

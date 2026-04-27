@@ -1,14 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
-import type { TradeCategory, JobSummary } from '@tradelink/types'
+import type { TradeCategory, JobSummary, FileUploadRecord } from '@tradelink/types'
 import { API_URL } from '../../lib/api'
 import { US_STATES } from '../../lib/states'
+import { FileUpload } from '../FileUpload'
 
 interface Props {
   onClose: () => void
   onCreated: (jobId: string) => void
 }
 
-type Step = 'category' | 'chat' | 'review'
+type Step = 'category' | 'chat' | 'review' | 'manual'
 
 interface ChatMessage {
   role: 'user' | 'assistant'
@@ -59,6 +60,17 @@ export function PostJobModal({ onClose, onCreated }: Props) {
   const [confirming, setConfirming] = useState(false)
   const [confirmError, setConfirmError] = useState('')
 
+  // manual form state
+  const [manualTitle, setManualTitle] = useState('')
+  const [manualDescription, setManualDescription] = useState('')
+  const [manualAddress, setManualAddress] = useState('')
+  const [manualCity, setManualCity] = useState('')
+  const [manualState, setManualState] = useState('')
+  const [manualSubmitting, setManualSubmitting] = useState(false)
+  const [manualError, setManualError] = useState('')
+  const [manualJobId, setManualJobId] = useState<string | null>(null)
+  const [manualFiles, setManualFiles] = useState<FileUploadRecord[]>([])
+
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const token = localStorage.getItem('token')
@@ -99,20 +111,14 @@ export function PostJobModal({ onClose, onCreated }: Props) {
     }
   }
 
-  const toBase64 = (file: File): Promise<string> =>
-    new Promise((resolve, reject) => {
-      const reader = new FileReader()
-      reader.onload = () => resolve((reader.result as string).split(',')[1])
-      reader.onerror = reject
-      reader.readAsDataURL(file)
-    })
-
   const handleSend = async () => {
     const text = input.trim()
     if (!text && pendingFiles.length === 0) return
     if (waiting) return
 
-    const attachmentPreviews = pendingFiles.map((f) => ({
+    const filesToSend = [...pendingFiles]
+
+    const attachmentPreviews = filesToSend.map((f) => ({
       name: f.name,
       preview: URL.createObjectURL(f),
       isImage: f.type.startsWith('image/'),
@@ -128,16 +134,28 @@ export function PostJobModal({ onClose, onCreated }: Props) {
     setChatError('')
 
     try {
-      const attachments = await Promise.all(
-        pendingFiles
-          .filter((f) => f.type.startsWith('image/'))
-          .map(async (f) => ({ mediaType: f.type, data: await toBase64(f) })),
-      )
+      // Upload images to storage, send URLs to AI (avoids base64 in JSON body)
+      const imageUrls: Array<{ url: string; mimeType: string }> = []
+      for (const f of filesToSend.filter((f) => f.type.startsWith('image/'))) {
+        const form = new FormData()
+        form.append('file', f)
+        form.append('category', 'JOB_PHOTO')
+        if (sessionId) form.append('sessionId', sessionId)
+        const up = await fetch(`${API_URL}/uploads`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+          body: form,
+        })
+        if (up.ok) {
+          const d = await up.json()
+          imageUrls.push({ url: d.url, mimeType: d.mimeType })
+        }
+      }
 
       const res = await fetch(`${API_URL}/ai/intake/message`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ sessionId, message: text || 'See attached files.', attachments }),
+        body: JSON.stringify({ sessionId, message: text || 'See attached files.', imageUrls }),
       })
       const data = await res.json()
       if (!res.ok) { setChatError(data.error ?? 'Something went wrong'); return }
@@ -166,8 +184,9 @@ export function PostJobModal({ onClose, onCreated }: Props) {
   }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) setPendingFiles((prev) => [...prev, ...Array.from(e.target.files!)])
+    const files = Array.from(e.target.files || [])
     e.target.value = ''
+    if (files.length) setPendingFiles((prev) => [...prev, ...files])
   }
 
   const handleConfirm = async () => {
@@ -190,6 +209,34 @@ export function PostJobModal({ onClose, onCreated }: Props) {
     }
   }
 
+  const handleManualSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!selectedCategory) return
+    setManualSubmitting(true)
+    setManualError('')
+    try {
+      const res = await fetch(`${API_URL}/jobs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          title: manualTitle,
+          description: manualDescription,
+          address: manualAddress,
+          city: manualCity,
+          state: manualState,
+          categoryId: selectedCategory.id,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setManualError(data.error ?? 'Failed to create job'); return }
+      setManualJobId(data.id)
+    } catch {
+      setManualError('Network error. Please try again.')
+    } finally {
+      setManualSubmitting(false)
+    }
+  }
+
   const inputCls =
     'w-full px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent'
   const labelCls = 'block text-sm font-medium text-gray-700 mb-1'
@@ -201,7 +248,7 @@ export function PostJobModal({ onClose, onCreated }: Props) {
     >
       <div
         className="bg-white rounded-2xl shadow-2xl w-full max-w-lg flex flex-col overflow-hidden"
-        style={{ height: step === 'chat' ? '85vh' : 'auto', maxHeight: '85vh' }}
+        style={{ height: step === 'chat' || step === 'manual' ? '85vh' : 'auto', maxHeight: '85vh' }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -212,14 +259,36 @@ export function PostJobModal({ onClose, onCreated }: Props) {
                 {step === 'category' && 'Post a Job'}
                 {step === 'chat' && (selectedCategory ? `${selectedCategory.icon} ${selectedCategory.name}` : 'AI Intake')}
                 {step === 'review' && 'Review Your Request'}
+                {step === 'manual' && (selectedCategory ? `${selectedCategory.icon} ${selectedCategory.name}` : 'Post a Job')}
               </h2>
               {step === 'chat' && (
                 <p className="text-xs text-gray-400 mt-0.5">Describing your project to find the best contractors</p>
               )}
+              {step === 'manual' && (
+                <p className="text-xs text-gray-400 mt-0.5">Fill in the details manually</p>
+              )}
             </div>
+            <div className="flex items-center gap-3">
+              {step === 'chat' && (
+                <button
+                  onClick={() => setStep('manual')}
+                  className="text-xs text-gray-400 hover:text-gray-600 underline"
+                >
+                  Skip AI
+                </button>
+              )}
+              {step === 'manual' && (
+                <button
+                  onClick={() => setStep('chat')}
+                  className="text-xs text-gray-400 hover:text-gray-600 underline"
+                >
+                  Back to AI
+                </button>
+              )}
             <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">
               ✕
             </button>
+            </div>
           </div>
 
           {/* Progress bar (chat + review only) */}
@@ -303,11 +372,10 @@ export function PostJobModal({ onClose, onCreated }: Props) {
                     )}
                     {msg.content && (
                       <div
-                        className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${
-                          msg.role === 'user'
+                        className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${msg.role === 'user'
                             ? 'bg-blue-600 text-white rounded-br-sm'
                             : 'bg-gray-100 text-gray-800 rounded-bl-sm'
-                        }`}
+                          }`}
                       >
                         {msg.content}
                       </div>
@@ -433,7 +501,7 @@ export function PostJobModal({ onClose, onCreated }: Props) {
               <div>
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Scope of Work</p>
                 <ul className="space-y-1">
-                  {jobSummary.scopeOfWork.map((item, i) => (
+                  {(jobSummary.scopeOfWork ?? []).map((item, i) => (
                     <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
                       <span className="text-blue-500 mt-0.5">✓</span>
                       {item}
@@ -455,7 +523,7 @@ export function PostJobModal({ onClose, onCreated }: Props) {
                 </div>
               </div>
 
-              {jobSummary.specialRequirements.length > 0 && (
+              {(jobSummary.specialRequirements ?? []).length > 0 && (
                 <div>
                   <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Special Requirements</p>
                   <ul className="space-y-0.5">
@@ -525,6 +593,111 @@ export function PostJobModal({ onClose, onCreated }: Props) {
                 {confirming ? 'Posting…' : 'Post Job'}
               </button>
             </div>
+          </div>
+        )}
+
+        {/* Step — Manual form */}
+        {step === 'manual' && (
+          <div className="overflow-y-auto p-6">
+            {!manualJobId ? (
+              <form onSubmit={handleManualSubmit} className="space-y-4">
+                {manualError && (
+                  <div className="px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                    {manualError}
+                  </div>
+                )}
+                <div>
+                  <label className={labelCls}>Job title</label>
+                  <input
+                    type="text"
+                    required
+                    value={manualTitle}
+                    onChange={(e) => setManualTitle(e.target.value)}
+                    placeholder="e.g. Replace ceiling light fixture"
+                    className={inputCls}
+                  />
+                </div>
+                <div>
+                  <label className={labelCls}>Description</label>
+                  <textarea
+                    required
+                    value={manualDescription}
+                    onChange={(e) => setManualDescription(e.target.value)}
+                    placeholder="Describe what needs to be done…"
+                    rows={4}
+                    className={inputCls + ' resize-none'}
+                  />
+                </div>
+                <div>
+                  <label className={labelCls}>Street address</label>
+                  <input
+                    type="text"
+                    required
+                    value={manualAddress}
+                    onChange={(e) => setManualAddress(e.target.value)}
+                    placeholder="123 Main St"
+                    className={inputCls}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className={labelCls}>City</label>
+                    <input
+                      type="text"
+                      required
+                      value={manualCity}
+                      onChange={(e) => setManualCity(e.target.value)}
+                      placeholder="Austin"
+                      className={inputCls}
+                    />
+                  </div>
+                  <div>
+                    <label className={labelCls}>State</label>
+                    <select
+                      value={manualState}
+                      onChange={(e) => setManualState(e.target.value)}
+                      required
+                      className={inputCls}
+                    >
+                      <option value="">Select…</option>
+                      {US_STATES.map((s) => (
+                        <option key={s.code} value={s.code}>{s.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <button
+                  type="submit"
+                  disabled={manualSubmitting}
+                  className="w-full py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white font-semibold rounded-xl transition-colors"
+                >
+                  {manualSubmitting ? 'Posting…' : 'Post Job'}
+                </button>
+              </form>
+            ) : (
+              <div className="space-y-5">
+                <div className="text-center py-2">
+                  <p className="text-lg font-semibold text-gray-900">Job posted!</p>
+                  <p className="text-sm text-gray-500 mt-1">Add photos to help contractors understand the job</p>
+                </div>
+                <FileUpload
+                  category="JOB_PHOTO"
+                  jobId={manualJobId}
+                  existingFiles={manualFiles}
+                  onUploaded={(f) => setManualFiles((prev) => [...prev, f])}
+                  onRemoved={(id) => setManualFiles((prev) => prev.filter((f) => f.id !== id))}
+                  maxFiles={20}
+                  accept="image/*,application/pdf,video/mp4,video/quicktime"
+                  label="Add photos or documents"
+                />
+                <button
+                  onClick={() => onCreated(manualJobId)}
+                  className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors"
+                >
+                  View Job
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
