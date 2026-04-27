@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { API_URL } from '../../lib/api'
 import { StarRating } from '../StarRating'
 
@@ -11,6 +12,7 @@ interface Props {
 }
 
 export function ReviewModal({ jobId, jobTitle, contractorName, onClose, onSubmitted }: Props) {
+  const { t } = useTranslation()
   const [rating, setRating] = useState(0)
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
@@ -50,10 +52,10 @@ export function ReviewModal({ jobId, jobTitle, contractorName, onClose, onSubmit
         onSubmitted()
       } else {
         const d = await res.json()
-        setError(d.error ?? 'Failed to submit review')
+        setError(d.error ?? t('reviewModal.failedSubmit'))
       }
     } catch {
-      setError('Network error. Please try again.')
+      setError(t('common.networkError'))
     } finally {
       setSubmitting(false)
     }
@@ -70,7 +72,7 @@ export function ReviewModal({ jobId, jobTitle, contractorName, onClose, onSubmit
       >
         <div className="p-6">
           <div className="flex items-center justify-between mb-1">
-            <h2 className="text-lg font-bold text-gray-900">Review {contractorName}</h2>
+            <h2 className="text-lg font-bold text-gray-900">{t('reviewModal.reviewTitle', { name: contractorName })}</h2>
             <button
               onClick={onClose}
               className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
@@ -78,7 +80,7 @@ export function ReviewModal({ jobId, jobTitle, contractorName, onClose, onSubmit
               ✕
             </button>
           </div>
-          <p className="text-sm text-gray-500 mb-6">Job: {jobTitle}</p>
+          <p className="text-sm text-gray-500 mb-6">{t('reviewModal.job', { title: jobTitle })}</p>
 
           {error && (
             <div className="mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
@@ -90,12 +92,12 @@ export function ReviewModal({ jobId, jobTitle, contractorName, onClose, onSubmit
             {/* Overall rating */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Overall Rating <span className="text-red-500">*</span>
+                {t('reviewModal.overallRating')} <span className="text-red-500">*</span>
               </label>
               <StarRating value={rating} size="lg" interactive onChange={setRating} />
               {rating > 0 && (
                 <span className="text-xs text-gray-500 mt-1 block">
-                  {['', 'Poor', 'Fair', 'Good', 'Very Good', 'Excellent'][rating]}
+                  {['', t('reviewModal.poor'), t('reviewModal.fair'), t('reviewModal.good'), t('reviewModal.veryGood'), t('reviewModal.excellent')][rating]}
                 </span>
               )}
             </div>
@@ -103,13 +105,13 @@ export function ReviewModal({ jobId, jobTitle, contractorName, onClose, onSubmit
             {/* Title */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1">
-                Review Title <span className="text-red-500">*</span>
+                {t('reviewModal.reviewTitleLabel')} <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="Summarize your experience"
+                placeholder={t('reviewModal.reviewTitlePlaceholder')}
                 className="w-full px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
@@ -117,27 +119,27 @@ export function ReviewModal({ jobId, jobTitle, contractorName, onClose, onSubmit
             {/* Body */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1">
-                Your Review <span className="text-red-500">*</span>
+                {t('reviewModal.yourReview')} <span className="text-red-500">*</span>
               </label>
               <textarea
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
-                placeholder="Describe your experience in detail (at least 50 characters recommended)"
+                placeholder={t('reviewModal.reviewBodyPlaceholder')}
                 rows={4}
                 className="w-full px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
               />
-              <p className="text-xs text-gray-400 mt-1">{body.length} characters</p>
+              <p className="text-xs text-gray-400 mt-1">{t('reviewModal.characters', { count: body.length })}</p>
             </div>
 
             {/* Sub-ratings */}
             <div>
-              <p className="text-sm font-semibold text-gray-700 mb-3">Detailed Ratings (optional)</p>
+              <p className="text-sm font-semibold text-gray-700 mb-3">{t('reviewModal.detailedRatings')}</p>
               <div className="space-y-3">
                 {[
-                  { label: 'Quality of Work', value: qualityRating, onChange: setQualityRating },
-                  { label: 'Communication', value: communicationRating, onChange: setCommunicationRating },
-                  { label: 'Timeliness', value: timelinessRating, onChange: setTimelinessRating },
-                  { label: 'Value for Money', value: valueRating, onChange: setValueRating },
+                  { label: t('reviewModal.qualityOfWork'), value: qualityRating, onChange: setQualityRating },
+                  { label: t('reviewModal.communication'), value: communicationRating, onChange: setCommunicationRating },
+                  { label: t('reviewModal.timeliness'), value: timelinessRating, onChange: setTimelinessRating },
+                  { label: t('reviewModal.valueForMoney'), value: valueRating, onChange: setValueRating },
                 ].map(({ label, value, onChange }) => (
                   <div key={label} className="flex items-center gap-3">
                     <span className="text-sm text-gray-600 w-36 shrink-0">{label}</span>
@@ -153,14 +155,14 @@ export function ReviewModal({ jobId, jobTitle, contractorName, onClose, onSubmit
               onClick={onClose}
               className="flex-1 py-2.5 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors"
             >
-              Cancel
+              {t('reviewModal.cancel')}
             </button>
             <button
               onClick={handleSubmit}
               disabled={!canSubmit || submitting}
               className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white text-sm font-semibold rounded-lg transition-colors"
             >
-              {submitting ? 'Submitting…' : 'Submit Review'}
+              {submitting ? t('reviewModal.submitting') : t('reviewModal.submitReview')}
             </button>
           </div>
         </div>

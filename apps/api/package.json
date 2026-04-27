@@ -25,6 +25,7 @@
     "bcryptjs": "^2.4.3",
     "fastify": "^4.28.0",
     "ioredis": "^5.10.1",
+    "openai": "^6.34.0",
     "resend": "^6.12.2"
   },
   "devDependencies": {

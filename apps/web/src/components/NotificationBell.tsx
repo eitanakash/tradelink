@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { AppNotification } from '@tradelink/types'
+import { useTranslation } from 'react-i18next'
 import { API_URL } from '../lib/api'
 import { timeAgo } from '../lib/date'
 import { wsClient } from '../services/websocket'
@@ -16,6 +17,7 @@ const ICONS: Record<string, string> = {
 }
 
 export function NotificationBell() {
+  const { t } = useTranslation()
   const [notifications, setNotifications] = useState<AppNotification[]>([])
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -83,17 +85,17 @@ export function NotificationBell() {
       {open && (
         <div className="absolute right-0 mt-2 w-80 bg-white border border-gray-200 rounded-2xl shadow-xl z-50 overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-            <h3 className="font-semibold text-gray-900 text-sm">Notifications</h3>
+            <h3 className="font-semibold text-gray-900 text-sm">{t('notifications.title')}</h3>
             {unreadCount > 0 && (
               <button onClick={markAllRead} className="text-xs text-blue-600 hover:underline font-medium">
-                Mark all read
+                {t('notifications.markAllRead')}
               </button>
             )}
           </div>
 
           <div className="max-h-96 overflow-y-auto divide-y divide-gray-50">
             {notifications.length === 0 ? (
-              <p className="text-center text-sm text-gray-400 py-8">No notifications yet</p>
+              <p className="text-center text-sm text-gray-400 py-8">{t('notifications.none')}</p>
             ) : (
               notifications.slice(0, 20).map((n) => (
                 <button
