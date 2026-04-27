@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { Job } from '@tradelink/types'
 import { API_URL } from '../../lib/api'
+import { timeAgo } from '../../lib/date'
 
 const STATUS_LABELS: Record<string, string> = {
   OPEN: 'Open',
@@ -86,6 +87,7 @@ export function ClientJobList({ onSelectJob, onPostJob }: Props) {
                   <p className="text-sm text-gray-500 mt-0.5">
                     {job.city}, {job.state}
                   </p>
+                  <p className="text-xs text-gray-400 mt-1">{timeAgo(job.createdAt)}</p>
                 </div>
                 <div className="flex flex-col items-end gap-2 shrink-0">
                   <span

@@ -3,15 +3,21 @@ import Fastify from 'fastify'
 import cors from '@fastify/cors'
 import jwt from '@fastify/jwt'
 import multipart from '@fastify/multipart'
+import websocket from '@fastify/websocket'
 import type { FastifyRequest, FastifyReply } from 'fastify'
 import type { HealthResponse } from '@tradelink/types'
 import { authRoutes } from './routes/auth'
 import { jobRoutes } from './routes/jobs'
 import { contractorRoutes } from './routes/contractor'
+import { contractorsRoutes } from './routes/contractors'
 import { aiRoutes } from './routes/ai'
 import { uploadRoutes } from './routes/uploads'
+import { conversationRoutes } from './routes/conversations'
+import { notificationRoutes } from './routes/notifications'
 
 const app = Fastify({ logger: true, bodyLimit: 4 * 1024 * 1024 })
+
+app.register(websocket)
 
 app.register(cors, {
   origin: 'http://localhost:5173',
@@ -40,8 +46,11 @@ app.get<{ Reply: HealthResponse }>('/health', async () => {
 app.register(authRoutes)
 app.register(jobRoutes)
 app.register(contractorRoutes)
+app.register(contractorsRoutes)
 app.register(aiRoutes)
 app.register(uploadRoutes)
+app.register(conversationRoutes)
+app.register(notificationRoutes)
 
 const start = async () => {
   try {

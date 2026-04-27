@@ -9,6 +9,10 @@ import { ContractorJobFeed } from './contractor/ContractorJobFeed'
 import { ContractorJobDetail } from './contractor/ContractorJobDetail'
 import { ContractorQuoteList } from './contractor/ContractorQuoteList'
 import { ContractorProfile } from './contractor/ContractorProfile'
+import { wsClient } from '../services/websocket'
+import { NotificationBell } from './NotificationBell'
+import { Inbox } from './messages/Inbox'
+import { useToast } from './Toast'
 
 interface Props {
   user: UserProfile
@@ -32,11 +36,40 @@ export function Dashboard({ user, activeMode, onModeChange, onUserUpdate, onLogo
   const [contractorState, setContractorState] = useState('')
   const [showStatePrompt, setShowStatePrompt] = useState(false)
 
+  const { toast } = useToast()
+  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null)
+  const [showMessages, setShowMessages] = useState(false)
+  const [msgUnread, setMsgUnread] = useState(0)
+
   useEffect(() => {
     setView('list')
     setSelectedJobId(null)
     setContractorTab('feed')
   }, [activeMode])
+
+  useEffect(() => {
+    const token = localStorage.getItem('token')
+    if (token) wsClient.connect(token)
+
+    const offNewMsg = wsClient.on('NEW_MESSAGE', () => {
+      setMsgUnread((n) => n + 1)
+    })
+    const offQuote = wsClient.on('QUOTE_SUBMITTED', () => {
+      toast('A new quote just arrived!', 'info')
+    })
+
+    return () => {
+      offNewMsg()
+      offQuote()
+      wsClient.disconnect()
+    }
+  }, [])
+
+  const handleOpenMessages = (conversationId?: string) => {
+    setSelectedConversationId(conversationId ?? null)
+    setShowMessages(true)
+    setMsgUnread(0)
+  }
 
   const hasBoth = user.hasClientProfile && user.hasContractorProfile
   const isClientMode = activeMode === 'CLIENT'
@@ -116,9 +149,22 @@ export function Dashboard({ user, activeMode, onModeChange, onUserUpdate, onLogo
                 </button>
               </div>
             )}
+            {/* Messages button */}
+            <button
+              onClick={() => handleOpenMessages()}
+              className="relative p-2 rounded-lg hover:bg-gray-100 transition-colors"
+            >
+              <span className="text-xl">💬</span>
+              {msgUnread > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-blue-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1">
+                  {msgUnread > 99 ? '99+' : msgUnread}
+                </span>
+              )}
+            </button>
+            <NotificationBell />
             <span className="text-sm text-gray-400 hidden sm:block">{user.email}</span>
             <button
-              onClick={onLogout}
+              onClick={() => { wsClient.disconnect(); onLogout() }}
               className="text-sm font-medium text-gray-500 hover:text-red-600 transition-colors"
             >
               Logout
@@ -129,7 +175,17 @@ export function Dashboard({ user, activeMode, onModeChange, onUserUpdate, onLogo
 
       {/* Main content */}
       <main className="flex-1 max-w-3xl w-full mx-auto px-6 py-10">
-        {isClientMode ? (
+        {showMessages ? (
+          <div>
+            <button
+              onClick={() => setShowMessages(false)}
+              className="text-sm text-blue-600 hover:underline mb-4 flex items-center gap-1"
+            >
+              ← Back
+            </button>
+            <Inbox userId={user.id} initialConversationId={selectedConversationId} />
+          </div>
+        ) : isClientMode ? (
           <>
             {view === 'list' && (
               <ClientJobList
@@ -138,7 +194,12 @@ export function Dashboard({ user, activeMode, onModeChange, onUserUpdate, onLogo
               />
             )}
             {view === 'detail' && selectedJobId && (
-              <ClientJobDetail jobId={selectedJobId} onBack={handleBack} onDeleted={handleBack} />
+              <ClientJobDetail
+                jobId={selectedJobId}
+                onBack={handleBack}
+                onDeleted={handleBack}
+                onOpenConversation={handleOpenMessages}
+              />
             )}
           </>
         ) : (
@@ -189,7 +250,11 @@ export function Dashboard({ user, activeMode, onModeChange, onUserUpdate, onLogo
               </>
             )}
             {view === 'detail' && selectedJobId && (
-              <ContractorJobDetail jobId={selectedJobId} onBack={handleBack} />
+              <ContractorJobDetail
+                jobId={selectedJobId}
+                onBack={handleBack}
+                onOpenConversation={handleOpenMessages}
+              />
             )}
           </>
         )}
