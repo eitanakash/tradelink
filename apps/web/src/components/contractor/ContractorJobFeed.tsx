@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { Job, TradeCategory, ContractorProfileData } from '@tradelink/types'
 import { API_URL } from '../../lib/api'
+import { timeAgo } from '../../lib/date'
 
 interface Props {
   onSelectJob: (id: string) => void
@@ -155,7 +156,7 @@ export function ContractorJobFeed({ onSelectJob }: Props) {
                 <h3 className="font-semibold text-gray-900 truncate">{job.title}</h3>
                 <p className="text-sm text-gray-500 mt-0.5 line-clamp-2">{job.description}</p>
                 <p className="text-xs text-gray-400 mt-1.5">
-                  {job.city}, {job.state} · {job.client?.user.name}
+                  {job.city}, {job.state} · {job.client?.user.name} · {timeAgo(job.createdAt)}
                 </p>
               </div>
               <div className="shrink-0 text-right">
