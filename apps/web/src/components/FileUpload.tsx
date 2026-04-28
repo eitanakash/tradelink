@@ -115,11 +115,8 @@ export function FileUpload({
             prev.map((p) => (p.localId === pf.localId ? { ...p, progress: pct } : p)),
           )
         })
-        setPending((prev) =>
-          prev.map((p) =>
-            p.localId === pf.localId ? { ...p, status: 'done', result, progress: 100 } : p,
-          ),
-        )
+        // Remove from pending — parent's existingFiles (via onUploaded) shows the done file
+        setPending((prev) => prev.filter((p) => p.localId !== pf.localId))
         onUploaded?.(result)
       } catch (err: any) {
         setPending((prev) =>

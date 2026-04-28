@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import type { UserProfile, ActiveMode } from '@tradelink/types'
 import { LandingPage } from './components/LandingPage'
 import { Dashboard } from './components/Dashboard'
+import { ToastProvider } from './components/Toast'
 import { API_URL } from './lib/api'
 
 function resolveMode(user: UserProfile, stored: string | null): ActiveMode {
@@ -60,15 +61,21 @@ export default function App() {
 
   if (user) {
     return (
-      <Dashboard
-        user={user}
-        activeMode={activeMode}
-        onModeChange={setActiveMode}
-        onUserUpdate={setUser}
-        onLogout={handleLogout}
-      />
+      <ToastProvider>
+        <Dashboard
+          user={user}
+          activeMode={activeMode}
+          onModeChange={setActiveMode}
+          onUserUpdate={setUser}
+          onLogout={handleLogout}
+        />
+      </ToastProvider>
     )
   }
 
-  return <LandingPage onAuth={handleAuth} />
+  return (
+    <ToastProvider>
+      <LandingPage onAuth={handleAuth} />
+    </ToastProvider>
+  )
 }

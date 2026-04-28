@@ -4,6 +4,15 @@ import { prisma } from '../lib/prisma'
 
 type Role = 'CLIENT' | 'CONTRACTOR'
 
+function generateSlug(name: string): string {
+  const base = name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 40)
+  return `${base}-${Math.random().toString(36).slice(2, 7)}`
+}
+
 interface RegisterBody {
   email: string
   password: string
@@ -87,7 +96,7 @@ export async function authRoutes(app: FastifyInstance) {
         name,
         ...(initialRole === 'CLIENT'
           ? { clientProfile: { create: {} } }
-          : { contractorProfile: { create: { state: state! } } }),
+          : { contractorProfile: { create: { state: state!, slug: generateSlug(name) } } }),
       },
     })
 
@@ -143,7 +152,8 @@ export async function authRoutes(app: FastifyInstance) {
         if (role === 'CLIENT') {
           await prisma.clientProfile.create({ data: { userId } })
         } else {
-          await prisma.contractorProfile.create({ data: { userId, state: state! } })
+          const userRecord = await prisma.user.findUnique({ where: { id: userId }, select: { name: true } })
+          await prisma.contractorProfile.create({ data: { userId, state: state!, slug: generateSlug(userRecord?.name ?? userId) } })
         }
       } catch (e: any) {
         if (e.code === 'P2002') {

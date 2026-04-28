@@ -1,45 +1,42 @@
 import { useEffect, useState } from 'react'
-import type { Job, JobQuote, FileUploadRecord } from '@tradelink/types'
+import { useTranslation } from 'react-i18next'
+import type { Job, JobQuote, FileUploadRecord, QuoteQuestion } from '@tradelink/types'
 import { API_URL } from '../../lib/api'
-import { FileUpload } from '../FileUpload'
+import { formatDateTime } from '../../lib/date'
+import { QuoteTierCard } from '../QuoteTierCard'
+import { ContractorQuoteForm } from './ContractorQuoteForm'
 
 interface Props {
   jobId: string
   onBack: () => void
+  onOpenConversation?: (conversationId: string) => void
 }
 
-export function ContractorJobDetail({ jobId, onBack }: Props) {
+export function ContractorJobDetail({ jobId, onBack, onOpenConversation }: Props) {
+  const { t } = useTranslation()
   const [job, setJob] = useState<Job | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-
-  const [amount, setAmount] = useState('')
-  const [notes, setNotes] = useState('')
-  const [submitting, setSubmitting] = useState(false)
-  const [submitError, setSubmitError] = useState('')
-  const [quoteFiles, setQuoteFiles] = useState<FileUploadRecord[]>([])
-  const [newQuoteId, setNewQuoteId] = useState<string | null>(null)
-
-  const [editing, setEditing] = useState(false)
-  const [editAmount, setEditAmount] = useState('')
-  const [editNotes, setEditNotes] = useState('')
-  const [saving, setSaving] = useState(false)
-  const [saveError, setSaveError] = useState('')
-
+  const [selectedTierIdx, setSelectedTierIdx] = useState(0)
   const [confirmWithdraw, setConfirmWithdraw] = useState(false)
   const [withdrawing, setWithdrawing] = useState(false)
+  const [startingConv, setStartingConv] = useState(false)
+  const [markingComplete, setMarkingComplete] = useState(false)
+  const [replyText, setReplyText] = useState('')
+  const [submittingReply, setSubmittingReply] = useState(false)
 
   const token = localStorage.getItem('token')
 
   const loadJob = () => {
     setLoading(true)
+    setSelectedTierIdx(0)
     fetch(`${API_URL}/jobs/${jobId}`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((r) => r.json())
       .then((data) => {
         if (data.id) setJob(data)
-        else setError(data.error ?? 'Failed to load job')
+        else setError(data.error ?? t('contractorDetail.failedLoad'))
       })
       .catch(() => setError('Network error'))
       .finally(() => setLoading(false))
@@ -49,54 +46,31 @@ export function ContractorJobDetail({ jobId, onBack }: Props) {
 
   const myQuote: JobQuote | undefined = job?.quotes?.[0]
 
-  const handleSubmitQuote = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setSubmitting(true)
-    setSubmitError('')
+  const handleMarkComplete = async () => {
+    setMarkingComplete(true)
     try {
-      const res = await fetch(`${API_URL}/jobs/${jobId}/quotes`, {
+      const res = await fetch(`${API_URL}/jobs/${jobId}/complete`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ amount: Number(amount), notes }),
+        headers: { Authorization: `Bearer ${token}` },
       })
-      const data = await res.json()
-      if (!res.ok) { setSubmitError(data.error ?? 'Failed to submit quote'); return }
-      setNewQuoteId(data.id)
-      loadJob()
-    } catch {
-      setSubmitError('Network error. Please try again.')
+      if (res.ok) loadJob()
     } finally {
-      setSubmitting(false)
+      setMarkingComplete(false)
     }
   }
 
-  const startEdit = () => {
-    if (!myQuote) return
-    setEditAmount(String(myQuote.amount))
-    setEditNotes(myQuote.notes)
-    setSaveError('')
-    setEditing(true)
-  }
-
-  const handleSaveEdit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!myQuote) return
-    setSaving(true)
-    setSaveError('')
+  const handleSubmitReply = async (reviewId: string) => {
+    if (!replyText.trim()) return
+    setSubmittingReply(true)
     try {
-      const res = await fetch(`${API_URL}/contractor/quotes/${myQuote.id}`, {
+      const res = await fetch(`${API_URL}/reviews/${reviewId}/reply`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ amount: Number(editAmount), notes: editNotes }),
+        body: JSON.stringify({ reply: replyText.trim() }),
       })
-      const data = await res.json()
-      if (!res.ok) { setSaveError(data.error ?? 'Failed to save'); return }
-      setEditing(false)
-      loadJob()
-    } catch {
-      setSaveError('Network error. Please try again.')
+      if (res.ok) { setReplyText(''); loadJob() }
     } finally {
-      setSaving(false)
+      setSubmittingReply(false)
     }
   }
 
@@ -114,19 +88,16 @@ export function ContractorJobDetail({ jobId, onBack }: Props) {
     }
   }
 
-  if (loading) return <div className="text-center py-20 text-gray-400">Loading…</div>
-  if (error || !job) return <div className="text-center py-20 text-red-500">{error || 'Job not found'}</div>
-
-  const inputCls =
-    'w-full px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent'
-  const labelCls = 'block text-sm font-medium text-gray-700 mb-1'
+  if (loading) return <div className="text-center py-20 text-gray-400">{t('common.loading')}</div>
+  if (error || !job) return <div className="text-center py-20 text-red-500">{error || t('common.jobNotFound')}</div>
 
   return (
     <div>
       <button onClick={onBack} className="text-sm text-violet-600 hover:underline mb-6 flex items-center gap-1">
-        ← Back to jobs
+        {t('contractorDetail.backToJobs')}
       </button>
 
+      {/* Job card */}
       <div className="bg-white border border-gray-200 rounded-2xl p-6 mb-6">
         <div className="flex items-center gap-2 mb-2">
           <span className="text-xl">{job.category.icon}</span>
@@ -135,22 +106,30 @@ export function ContractorJobDetail({ jobId, onBack }: Props) {
         <h2 className="text-xl font-bold text-gray-900 mb-2">{job.title}</h2>
         <p className="text-gray-600 mb-3">{job.description}</p>
         <p className="text-sm text-gray-500">{job.address}, {job.city}, {job.state}</p>
-        {job.client && <p className="text-sm text-gray-400 mt-1">Posted by {job.client.user.name}</p>}
+        <p className="text-xs text-gray-400 mt-1">
+          Posted {formatDateTime(job.createdAt)}{job.client ? ` by ${job.client.user.name}` : ''}
+        </p>
 
         {(job.files ?? []).length > 0 && (
           <div className="mt-4 pt-4 border-t border-gray-100">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Job Photos</p>
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">{t('contractorDetail.jobPhotos')}</p>
             <div className="grid grid-cols-4 gap-2">
               {job.files!.map((f: FileUploadRecord) =>
                 f.mimeType.startsWith('image/') ? (
-                  <img key={f.id} src={f.url} alt={f.filename}
-                    className="w-full aspect-square object-cover rounded-lg border border-gray-200" />
+                  <img
+                    key={f.id} src={f.url} alt={f.filename}
+                    className="w-full aspect-square object-cover rounded-lg border border-gray-200"
+                  />
                 ) : f.mimeType.startsWith('video/') ? (
-                  <video key={f.id} src={f.url} controls
-                    className="w-full aspect-square object-cover rounded-lg border border-gray-200 col-span-2" />
+                  <video
+                    key={f.id} src={f.url} controls
+                    className="w-full aspect-square object-cover rounded-lg border border-gray-200 col-span-2"
+                  />
                 ) : (
-                  <a key={f.id} href={f.url} target="_blank" rel="noreferrer"
-                    className="flex flex-col items-center justify-center aspect-square bg-gray-50 rounded-lg border border-gray-200 text-xs text-gray-600 p-1 text-center hover:bg-gray-100">
+                  <a
+                    key={f.id} href={f.url} target="_blank" rel="noreferrer"
+                    className="flex flex-col items-center justify-center aspect-square bg-gray-50 rounded-lg border border-gray-200 text-xs text-gray-600 p-1 text-center hover:bg-gray-100"
+                  >
                     📄 <span className="truncate w-full mt-1">{f.filename}</span>
                   </a>
                 )
@@ -160,6 +139,7 @@ export function ContractorJobDetail({ jobId, onBack }: Props) {
         )}
       </div>
 
+      {/* Quote section */}
       {myQuote ? (
         <div
           className={`border rounded-2xl p-5 ${
@@ -167,13 +147,13 @@ export function ContractorJobDetail({ jobId, onBack }: Props) {
               ? 'border-green-300 bg-green-50'
               : myQuote.status === 'REJECTED'
               ? 'border-gray-200 bg-gray-50'
-              : 'border-yellow-200 bg-yellow-50'
+              : 'border-violet-200 bg-violet-50/30'
           }`}
         >
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="font-semibold text-gray-900">Your Quote</h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold text-gray-900">{t('contractorDetail.yourQuote')}</h3>
             <span
-              className={`text-xs font-medium px-2.5 py-1 rounded-full ${
+              className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
                 myQuote.status === 'ACCEPTED'
                   ? 'bg-green-100 text-green-700'
                   : myQuote.status === 'REJECTED'
@@ -181,183 +161,226 @@ export function ContractorJobDetail({ jobId, onBack }: Props) {
                   : 'bg-yellow-100 text-yellow-700'
               }`}
             >
-              {myQuote.status}
+              {t(`status.${myQuote.status}`, { defaultValue: myQuote.status })}
             </span>
           </div>
 
-          {editing ? (
-            <form onSubmit={handleSaveEdit} className="space-y-3">
-              {saveError && (
-                <p className="text-sm text-red-600">{saveError}</p>
+          {/* Cover letter */}
+          <div className="mb-4">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">{t('contractorDetail.coverLetter')}</p>
+            <p className="text-sm text-gray-700 leading-relaxed">{myQuote.coverLetter}</p>
+          </div>
+
+          {/* Pricing tiers */}
+          {myQuote.tiers.length > 0 && (
+            <div className="mb-4">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                {t('contractorDetail.pricingTiers')}
+              </p>
+              {myQuote.tiers.length > 1 && (
+                <div className="flex gap-1.5 mb-3 flex-wrap">
+                  {myQuote.tiers.map((tier, i) => (
+                    <button
+                      key={tier.id}
+                      onClick={() => setSelectedTierIdx(i)}
+                      className={`px-3 py-1 text-xs font-medium rounded-full transition-colors ${
+                        selectedTierIdx === i
+                          ? 'bg-violet-600 text-white'
+                          : 'bg-white border border-gray-300 text-gray-600 hover:bg-gray-50'
+                      }`}
+                    >
+                      {tier.name} · ${tier.price.toLocaleString()}
+                    </button>
+                  ))}
+                </div>
               )}
-              <div>
-                <label className={labelCls}>Price ($)</label>
-                <input
-                  type="number"
-                  required
-                  min="1"
-                  value={editAmount}
-                  onChange={(e) => setEditAmount(e.target.value)}
-                  className={inputCls}
-                />
+              {myQuote.tiers[selectedTierIdx] && (
+                <QuoteTierCard tier={myQuote.tiers[selectedTierIdx]} />
+              )}
+            </div>
+          )}
+
+          {/* Questions */}
+          {myQuote.questions.length > 0 && (
+            <div className="mb-4">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                {t('contractorDetail.yourQuestions')}
+              </p>
+              <div className="space-y-2">
+                {myQuote.questions.map((q: QuoteQuestion) => (
+                  <div key={q.id} className="bg-white/70 rounded-lg p-3">
+                    <p className="text-xs font-medium text-gray-800 mb-0.5">Q: {q.question}</p>
+                    {q.answer ? (
+                      <p className="text-xs text-gray-600">A: {q.answer}</p>
+                    ) : (
+                      <p className="text-xs text-gray-400 italic">{t('contractorDetail.awaitingAnswer')}</p>
+                    )}
+                  </div>
+                ))}
               </div>
-              <div>
-                <label className={labelCls}>Notes</label>
-                <textarea
-                  required
-                  value={editNotes}
-                  onChange={(e) => setEditNotes(e.target.value)}
-                  rows={3}
-                  className={inputCls + ' resize-none'}
-                />
+            </div>
+          )}
+
+          {/* Attachments */}
+          {(myQuote.files ?? []).length > 0 && (
+            <div className="mb-4">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                {t('contractorDetail.attachments')}
+              </p>
+              <div className="grid grid-cols-4 gap-2">
+                {myQuote.files!.map((f: FileUploadRecord) =>
+                  f.mimeType.startsWith('image/') ? (
+                    <img
+                      key={f.id} src={f.url} alt={f.filename}
+                      className="w-full aspect-square object-cover rounded-lg border border-gray-200"
+                    />
+                  ) : (
+                    <a
+                      key={f.id} href={f.url} target="_blank" rel="noreferrer"
+                      className="flex flex-col items-center justify-center aspect-square bg-white/60 rounded-lg border border-gray-200 text-xs text-gray-600 p-1 text-center hover:bg-gray-50"
+                    >
+                      📄 <span className="truncate w-full mt-1">{f.filename}</span>
+                    </a>
+                  )
+                )}
               </div>
-              <div className="flex gap-2 pt-1">
+            </div>
+          )}
+
+          {/* Status messages */}
+          {myQuote.status === 'ACCEPTED' && (
+            <div className="rounded-lg bg-green-100 px-4 py-3 text-sm font-medium text-green-800">
+              {t('contractorDetail.accepted')}
+            </div>
+          )}
+          {myQuote.status === 'REJECTED' && (
+            <p className="text-sm text-gray-500">{t('contractorDetail.notSelected')}</p>
+          )}
+
+          {/* Message client */}
+          {onOpenConversation && (
+            <button
+              onClick={async () => {
+                setStartingConv(true)
+                try {
+                  const res = await fetch(`${API_URL}/jobs/${jobId}/conversations`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                    body: JSON.stringify({}),
+                  })
+                  const data = await res.json()
+                  if (res.ok) onOpenConversation(data.conversationId)
+                } finally {
+                  setStartingConv(false)
+                }
+              }}
+              disabled={startingConv}
+              className="mt-3 flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-xl border border-blue-200 transition-colors"
+            >
+              {startingConv ? '…' : t('contractorDetail.messageClient')}
+            </button>
+          )}
+
+          {/* Withdraw */}
+          {myQuote.status === 'PENDING' &&
+            (confirmWithdraw ? (
+              <div className="flex items-center gap-2 mt-2 pt-2 border-t border-violet-100">
+                <span className="text-sm text-gray-600">{t('contractorDetail.confirmWithdraw')}</span>
                 <button
-                  type="button"
-                  onClick={() => setEditing(false)}
-                  className="flex-1 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-white transition-colors"
+                  onClick={handleWithdraw}
+                  disabled={withdrawing}
+                  className="px-3 py-1.5 bg-red-600 hover:bg-red-700 disabled:bg-red-300 text-white text-sm font-medium rounded-lg transition-colors"
+                >
+                  {withdrawing ? '…' : t('contractorDetail.yesWithdraw')}
+                </button>
+                <button
+                  onClick={() => setConfirmWithdraw(false)}
+                  className="px-3 py-1.5 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-white transition-colors"
                 >
                   Cancel
                 </button>
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="flex-1 py-2 bg-violet-600 hover:bg-violet-700 disabled:bg-violet-400 text-white text-sm font-semibold rounded-lg transition-colors"
-                >
-                  {saving ? 'Saving…' : 'Save'}
-                </button>
               </div>
-            </form>
-          ) : (
+            ) : (
+              <button
+                onClick={() => setConfirmWithdraw(true)}
+                className="mt-2 pt-2 text-red-600 text-sm font-medium hover:underline"
+              >
+                {t('contractorDetail.withdrawQuote')}
+              </button>
+            ))}
+        </div>
+      ) : job.status === 'OPEN' ? (
+        <ContractorQuoteForm jobId={jobId} onSubmitted={loadJob} />
+      ) : (
+        <p className="text-center text-sm text-gray-500 py-8">
+          {t('contractorDetail.jobNoLongerAccepting')}
+        </p>
+      )}
+
+      {/* Completion flow for awarded jobs */}
+      {myQuote?.status === 'ACCEPTED' && (job.status === 'AWARDED' || job.status === 'COMPLETED') && (
+        <div className={`mt-4 rounded-2xl border p-5 ${job.status === 'COMPLETED' ? 'border-green-200 bg-green-50' : 'border-violet-200 bg-violet-50/40'}`}>
+          <h3 className="font-semibold text-gray-900 mb-1">
+            {job.status === 'COMPLETED' ? t('contractorDetail.jobCompleted') : t('contractorDetail.jobInProgress')}
+          </h3>
+          {job.status === 'AWARDED' && (
             <>
-              <p className="text-2xl font-bold text-gray-900 mb-1">
-                ${myQuote.amount.toLocaleString()}
+              <p className="text-sm text-gray-600 mb-3">
+                {job.contractorMarkedComplete
+                  ? t('contractorDetail.waitingClientConfirm')
+                  : t('contractorDetail.markWhenDone')}
               </p>
-              <p className="text-sm text-gray-600 mb-3">{myQuote.notes}</p>
-
-              {(myQuote.files ?? []).length > 0 && (
-                <div className="grid grid-cols-4 gap-2 mb-4">
-                  {myQuote.files!.map((f) =>
-                    f.mimeType.startsWith('image/') ? (
-                      <img key={f.id} src={f.url} alt={f.filename} className="w-full aspect-square object-cover rounded-lg border border-yellow-200" />
-                    ) : (
-                      <a key={f.id} href={f.url} target="_blank" rel="noreferrer" className="flex flex-col items-center justify-center aspect-square bg-white/60 rounded-lg border border-yellow-200 text-xs text-gray-600 p-1 text-center">
-                        📄 <span className="truncate w-full">{f.filename}</span>
-                      </a>
-                    ),
-                  )}
-                </div>
+              {!job.contractorMarkedComplete && (
+                <button
+                  onClick={handleMarkComplete}
+                  disabled={markingComplete}
+                  className="px-4 py-2 bg-violet-600 hover:bg-violet-700 disabled:bg-violet-300 text-white text-sm font-semibold rounded-lg transition-colors"
+                >
+                  {markingComplete ? '…' : t('contractorDetail.markComplete')}
+                </button>
               )}
-
-              {myQuote.status === 'ACCEPTED' && (
-                <p className="text-sm font-medium text-green-700">
-                  Congratulations! The client accepted your quote.
-                </p>
-              )}
-
-              {myQuote.status === 'PENDING' && (
-                confirmWithdraw ? (
-                  <div className="flex items-center gap-2 pt-1">
-                    <span className="text-sm text-gray-600 mr-1">Withdraw this quote?</span>
-                    <button
-                      onClick={handleWithdraw}
-                      disabled={withdrawing}
-                      className="px-3 py-1.5 bg-red-600 hover:bg-red-700 disabled:bg-red-300 text-white text-sm font-medium rounded-lg transition-colors"
-                    >
-                      {withdrawing ? '…' : 'Yes, withdraw'}
-                    </button>
-                    <button
-                      onClick={() => setConfirmWithdraw(false)}
-                      className="px-3 py-1.5 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-white transition-colors"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex gap-2 pt-1">
-                    <button
-                      onClick={startEdit}
-                      className="px-4 py-1.5 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => setConfirmWithdraw(true)}
-                      className="px-4 py-1.5 text-red-600 text-sm font-medium rounded-lg hover:bg-red-50 transition-colors"
-                    >
-                      Withdraw
-                    </button>
-                  </div>
-                )
+              {job.contractorMarkedComplete && (
+                <div className="text-sm text-violet-700 font-medium">{t('contractorDetail.youMarkedComplete')}</div>
               )}
             </>
           )}
-        </div>
-      ) : job.status === 'OPEN' ? (
-        <div className="bg-white border border-gray-200 rounded-2xl p-6">
-          <h3 className="font-semibold text-gray-900 mb-4">Submit a Quote</h3>
-          {submitError && (
-            <div className="mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
-              {submitError}
+          {job.status === 'COMPLETED' && job.review && (
+            <div className="mt-3 bg-white/70 rounded-xl p-4 border border-green-100">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-yellow-400">{'★'.repeat(job.review.rating)}{'☆'.repeat(5 - job.review.rating)}</span>
+                <span className="font-semibold text-gray-900 text-sm">{job.review.title}</span>
+              </div>
+              <p className="text-sm text-gray-700 mb-3">{job.review.body}</p>
+              {job.review.contractorReply ? (
+                <div className="pl-3 border-l-2 border-green-300">
+                  <p className="text-xs font-semibold text-gray-500 mb-1">{t('contractorDetail.yourReply')}</p>
+                  <p className="text-sm text-gray-700">{job.review.contractorReply}</p>
+                </div>
+              ) : (
+                <div>
+                  <p className="text-xs font-semibold text-gray-500 mb-2">{t('contractorDetail.replyToReview')}</p>
+                  <textarea
+                    value={replyText}
+                    onChange={(e) => setReplyText(e.target.value)}
+                    rows={3}
+                    placeholder={t('contractorDetail.writeReply')}
+                    className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 resize-none"
+                  />
+                  <button
+                    onClick={() => handleSubmitReply(job.review!.id)}
+                    disabled={submittingReply || !replyText.trim()}
+                    className="mt-2 px-4 py-2 bg-violet-600 hover:bg-violet-700 disabled:bg-violet-300 text-white text-sm font-semibold rounded-lg transition-colors"
+                  >
+                    {submittingReply ? '…' : t('contractorDetail.submitReply')}
+                  </button>
+                </div>
+              )}
             </div>
           )}
-          <form onSubmit={handleSubmitQuote} className="space-y-4">
-            <div>
-              <label className={labelCls}>Your price ($)</label>
-              <input
-                type="number"
-                required
-                min="1"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                placeholder="e.g. 350"
-                className={inputCls}
-              />
-            </div>
-            <div>
-              <label className={labelCls}>Notes</label>
-              <textarea
-                required
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Describe your approach, timeline, materials included…"
-                rows={3}
-                className={inputCls + ' resize-none'}
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={submitting}
-              className="w-full py-3 bg-violet-600 hover:bg-violet-700 disabled:bg-violet-400 text-white font-semibold rounded-lg transition-colors"
-            >
-              {submitting ? 'Submitting…' : 'Submit Quote'}
-            </button>
-          </form>
-
-          {newQuoteId && (
-            <div className="mt-5 pt-5 border-t border-gray-200">
-              <p className="text-sm font-medium text-gray-700 mb-3">
-                Add photos or documents to your quote
-              </p>
-              <p className="text-xs text-gray-500 mb-3">Show previous work or attach your license</p>
-              <FileUpload
-                category="QUOTE_PHOTO"
-                quoteId={newQuoteId}
-                existingFiles={quoteFiles}
-                onUploaded={(f) => setQuoteFiles((prev) => [...prev, f])}
-                onRemoved={(id) => setQuoteFiles((prev) => prev.filter((f) => f.id !== id))}
-                maxFiles={10}
-                accept="image/*,application/pdf"
-                label="Add photos of previous work or license PDF"
-                compact
-              />
-            </div>
+          {job.status === 'COMPLETED' && !job.review && (
+            <p className="text-sm text-gray-500 mt-2">{t('contractorDetail.noReviewYet')}</p>
           )}
         </div>
-      ) : (
-        <p className="text-center text-sm text-gray-500 py-8">
-          This job is no longer accepting quotes.
-        </p>
       )}
     </div>
   )

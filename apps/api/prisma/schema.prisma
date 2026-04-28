@@ -23,30 +23,46 @@ model User {
   country           String?            @default("US")
   zipCode           String?
   createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
-  deletedAt         DateTime?
+  isAdmin           Boolean            @default(false)
+  isSuspended       Boolean            @default(false)
+  suspendedAt       DateTime?
+  suspendedReason   String?
   clientProfile     ClientProfile?
   contractorProfile ContractorProfile?
+  reviews           Review[]           @relation("ReviewAuthor")
 }
 
 model ClientProfile {
-  id        String   @id @default(cuid())
-  userId    String   @unique
-  user      User     @relation(fields: [userId], references: [id])
-  createdAt DateTime @default(now())
-  jobs      Job[]
+  id            String         @id @default(cuid())
+  userId        String         @unique
+  user          User           @relation(fields: [userId], references: [id])
+  createdAt     DateTime       @default(now())
+  jobs          Job[]
+  conversations Conversation[]
 }
 
 model ContractorProfile {
-  id         String          @id @default(cuid())
-  userId     String          @unique
-  user       User            @relation(fields: [userId], references: [id])
-  state      String
-  bio        String?
-  isVerified Boolean         @default(false)
-  createdAt  DateTime        @default(now())
-  trades     TradeCategory[]
-  quotes     Quote[]
+  id              String          @id @default(cuid())
+  userId          String          @unique
+  user            User            @relation(fields: [userId], references: [id])
+  state           String
+  bio             String?
+  isVerified      Boolean         @default(false)
+  createdAt       DateTime        @default(now())
+  slug            String?         @unique
+  headline        String?
+  yearsExperience Int?
+  website         String?
+  phone           String?
+  averageRating   Float           @default(0)
+  totalReviews    Int             @default(0)
+  totalJobs       Int             @default(0)
+  isFeatured      Boolean         @default(false)
+  memberSince     DateTime        @default(now())
+  trades          TradeCategory[]
+  quotes          Quote[]
+  conversations   Conversation[]
+  reviews         Review[]
 }
 
 model TradeCategory {
@@ -60,20 +76,26 @@ model TradeCategory {
 }
 
 model Job {
-  id          String        @id @default(cuid())
-  title       String
-  description String
-  address     String
-  city        String
-  state       String
-  status      JobStatus     @default(OPEN)
-  clientId    String
-  client      ClientProfile @relation(fields: [clientId], references: [id])
-  categoryId  String
-  category    TradeCategory @relation(fields: [categoryId], references: [id])
-  quotes      Quote[]
-  files       FileUpload[]
-  createdAt   DateTime      @default(now())
+  id                       String         @id @default(cuid())
+  title                    String
+  description              String
+  address                  String
+  city                     String
+  state                    String
+  status                   JobStatus      @default(OPEN)
+  clientId                 String
+  client                   ClientProfile  @relation(fields: [clientId], references: [id])
+  categoryId               String
+  category                 TradeCategory  @relation(fields: [categoryId], references: [id])
+  quotes                   Quote[]
+  files                    FileUpload[]
+  conversations            Conversation[]
+  createdAt                DateTime       @default(now())
+  completedAt              DateTime?
+  clientMarkedComplete     Boolean        @default(false)
+  contractorMarkedComplete Boolean        @default(false)
+  review                   Review?
+  disputes                 Dispute[]
 }
 
 enum JobStatus {
@@ -85,16 +107,41 @@ enum JobStatus {
 }
 
 model Quote {
-  id           String            @id @default(cuid())
-  amount       Float
-  notes        String
-  status       QuoteStatus       @default(PENDING)
+  id           String          @id @default(cuid())
+  status       QuoteStatus     @default(PENDING)
+  coverLetter  String          @default("")
+  questions    QuoteQuestion[]
+  tiers        QuoteTier[]
   jobId        String
-  job          Job               @relation(fields: [jobId], references: [id])
+  job          Job             @relation(fields: [jobId], references: [id])
   contractorId String
   contractor   ContractorProfile @relation(fields: [contractorId], references: [id])
   files        FileUpload[]
-  createdAt    DateTime          @default(now())
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+}
+
+model QuoteTier {
+  id          String   @id @default(cuid())
+  quoteId     String
+  quote       Quote    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  name        String
+  price       Float
+  description String
+  duration    String
+  inclusions  String[]
+  exclusions  String[]
+  warranty    String?
+  createdAt   DateTime @default(now())
+}
+
+model QuoteQuestion {
+  id        String   @id @default(cuid())
+  quoteId   String
+  quote     Quote    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  question  String
+  answer    String?
+  createdAt DateTime @default(now())
 }
 
 enum QuoteStatus {
@@ -117,8 +164,9 @@ model FileUpload {
   sessionId    String?
   createdAt    DateTime     @default(now())
 
-  job   Job?   @relation(fields: [jobId], references: [id])
-  quote Quote? @relation(fields: [quoteId], references: [id])
+  job      Job?      @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  quote    Quote?    @relation(fields: [quoteId], references: [id], onDelete: SetNull)
+  messages Message[]
 }
 
 enum FileCategory {
@@ -129,4 +177,120 @@ enum FileCategory {
   QUOTE_DOCUMENT
   PROFILE_PHOTO
   PROFILE_DOCUMENT
+}
+
+enum MessageType {
+  TEXT
+  FILE
+  SYSTEM
+}
+
+enum NotificationType {
+  NEW_QUOTE
+  QUOTE_ACCEPTED
+  QUOTE_REJECTED
+  NEW_MESSAGE
+  JOB_AWARDED
+  JOB_COMPLETED
+  QUESTION_ANSWERED
+  NEW_JOB_IN_AREA
+  NEW_REVIEW
+}
+
+model Conversation {
+  id           String            @id @default(cuid())
+  jobId        String
+  job          Job               @relation(fields: [jobId], references: [id])
+  clientId     String
+  client       ClientProfile     @relation(fields: [clientId], references: [id])
+  contractorId String
+  contractor   ContractorProfile @relation(fields: [contractorId], references: [id])
+  messages     Message[]
+  lastMessageAt DateTime         @default(now())
+  createdAt    DateTime          @default(now())
+
+  @@unique([jobId, contractorId])
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id])
+  senderId       String
+  content        String
+  messageType    MessageType  @default(TEXT)
+  fileId         String?
+  file           FileUpload?  @relation(fields: [fileId], references: [id])
+  readAt         DateTime?
+  createdAt      DateTime     @default(now())
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  title     String
+  body      String
+  link      String?
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+}
+
+model Review {
+  id                  String            @id @default(cuid())
+  jobId               String            @unique
+  job                 Job               @relation(fields: [jobId], references: [id])
+  authorId            String
+  author              User              @relation("ReviewAuthor", fields: [authorId], references: [id])
+  contractorId        String
+  contractor          ContractorProfile @relation(fields: [contractorId], references: [id])
+  rating              Int
+  title               String
+  body                String
+  qualityRating       Int
+  communicationRating Int
+  timelinessRating    Int
+  valueRating         Int
+  contractorReply     String?
+  contractorRepliedAt DateTime?
+  isVerified          Boolean           @default(true)
+  createdAt           DateTime          @default(now())
+  deletedAt           DateTime?
+}
+
+model AdminLog {
+  id         String   @id @default(cuid())
+  adminId    String
+  action     String
+  targetId   String?
+  targetType String?
+  notes      String?
+  createdAt  DateTime @default(now())
+}
+
+model Dispute {
+  id           String        @id @default(cuid())
+  jobId        String
+  job          Job           @relation(fields: [jobId], references: [id])
+  reportedById String
+  reason       String
+  description  String
+  status       DisputeStatus @default(OPEN)
+  resolution   String?
+  resolvedById String?
+  resolvedAt   DateTime?
+  createdAt    DateTime      @default(now())
+}
+
+enum DisputeStatus {
+  OPEN
+  UNDER_REVIEW
+  RESOLVED
+  CLOSED
+}
+
+model PlatformSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
 }
