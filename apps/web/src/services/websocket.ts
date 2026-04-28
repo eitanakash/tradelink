@@ -2,53 +2,73 @@ type Handler = (data: unknown) => void
 
 class WSClient {
   private ws: WebSocket | null = null
+  private handlers = new Map<string, Set<Handler>>()
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null
+  private reconnectDelay = 1000
+  private intentionalClose = false
   private token: string | null = null
-  private handlers: Map<string, Set<Handler>> = new Map()
 
   connect(token: string) {
     this.token = token
-    this.openSocket()
+    this.intentionalClose = false
+    this.reconnectDelay = 1000
+    this._connect()
   }
 
-  private openSocket() {
+  private _connect() {
     if (!this.token) return
-    const url = `ws://localhost:3000/ws?token=${this.token}`
-    this.ws = new WebSocket(url)
+    try {
+      this.ws = new WebSocket(`ws://localhost:3000/ws?token=${this.token}`)
+    } catch {
+      this._scheduleReconnect()
+      return
+    }
+
+    this.ws.onopen = () => {
+      this.reconnectDelay = 1000
+    }
 
     this.ws.onmessage = (event) => {
       try {
-        const { type, data } = JSON.parse(event.data)
-        const set = this.handlers.get(type)
-        if (set) set.forEach((h) => h(data))
-      } catch {
-        // ignore malformed messages
-      }
+        const { type, data } = JSON.parse(event.data as string)
+        this.handlers.get(type)?.forEach((h) => h(data))
+        this.handlers.get('*')?.forEach((h) => h({ type, data }))
+      } catch {}
     }
 
     this.ws.onclose = () => {
-      if (this.token) {
-        setTimeout(() => this.openSocket(), 4000)
-      }
+      if (!this.intentionalClose) this._scheduleReconnect()
     }
+
+    this.ws.onerror = () => {
+      this.ws?.close()
+    }
+  }
+
+  private _scheduleReconnect() {
+    if (this.reconnectTimer) clearTimeout(this.reconnectTimer)
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectDelay = Math.min(this.reconnectDelay * 2, 30000)
+      this._connect()
+    }, this.reconnectDelay)
   }
 
   disconnect() {
+    this.intentionalClose = true
+    if (this.reconnectTimer) clearTimeout(this.reconnectTimer)
+    this.ws?.close()
+    this.ws = null
     this.token = null
-    if (this.ws) {
-      this.ws.onclose = null
-      this.ws.close()
-      this.ws = null
-    }
   }
 
-  on(event: string, handler: Handler): () => void {
-    if (!this.handlers.has(event)) {
-      this.handlers.set(event, new Set())
-    }
+  on(event: string, handler: Handler) {
+    if (!this.handlers.has(event)) this.handlers.set(event, new Set())
     this.handlers.get(event)!.add(handler)
-    return () => {
-      this.handlers.get(event)?.delete(handler)
-    }
+    return () => this.off(event, handler)
+  }
+
+  off(event: string, handler: Handler) {
+    this.handlers.get(event)?.delete(handler)
   }
 }
 

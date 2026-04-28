@@ -2,14 +2,9 @@ import { useEffect, useState } from 'react'
 import { API_URL } from '../../lib/api'
 import { US_STATES } from '../../lib/states'
 import { useT } from '../../lib/i18n'
+import { StarRating } from '../StarRating'
 
 interface Trade {
-  id: string
-  name: string
-  icon: string
-}
-
-interface Category {
   id: string
   name: string
   icon: string
@@ -58,7 +53,7 @@ export function FindContractors({ onSelectContractor }: Props) {
   const [selectedTradeIds, setSelectedTradeIds] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
   const [initialised, setInitialised] = useState(false)
-  const [categories, setCategories] = useState<Category[]>([])
+  const [categories, setCategories] = useState<Trade[]>([])
   const [contractors, setContractors] = useState<ContractorListing[]>([])
 
   const token = localStorage.getItem('token')
@@ -125,7 +120,7 @@ export function FindContractors({ onSelectContractor }: Props) {
     return (
       c.user.name.toLowerCase().includes(q) ||
       (c.headline ?? '').toLowerCase().includes(q) ||
-      c.trades.some((t) => t.name.toLowerCase().includes(q))
+      c.trades.some((tr) => tr.name.toLowerCase().includes(q))
     )
   })
 
@@ -263,29 +258,31 @@ export function FindContractors({ onSelectContractor }: Props) {
                     )}
                     {c.trades.length > 0 && (
                       <div className="flex flex-wrap gap-1 mb-2">
-                        {c.trades.map((t) => {
-                          const highlighted = selectedTradeIds.includes(t.id)
+                        {c.trades.map((tr) => {
+                          const highlighted = selectedTradeIds.includes(tr.id)
                           return (
                             <span
-                              key={t.id}
+                              key={tr.id}
                               className={`text-xs px-2 py-0.5 rounded-full ${
                                 highlighted
                                   ? 'bg-blue-100 text-blue-700'
                                   : 'bg-gray-100 text-gray-600'
                               }`}
                             >
-                              {t.icon} {t.name}
+                              {tr.icon} {tr.name}
                             </span>
                           )
                         })}
                       </div>
                     )}
                     <div className="flex items-center gap-3 text-xs text-gray-400">
-                      {c.totalReviews > 0 && (
-                        <span>
-                          ⭐ {c.averageRating.toFixed(1)} ({c.totalReviews})
+                      {c.totalReviews > 0 ? (
+                        <span className="flex items-center gap-1">
+                          <StarRating value={c.averageRating} size="sm" />
+                          <span className="font-medium text-gray-700">{c.averageRating.toFixed(1)}</span>
+                          <span>({c.totalReviews} {t('reviewsWord')})</span>
                         </span>
-                      )}
+                      ) : null}
                       {c.totalJobs > 0 && <span>{c.totalJobs} {t('jobsWord')}</span>}
                       <span>{c.state}</span>
                     </div>

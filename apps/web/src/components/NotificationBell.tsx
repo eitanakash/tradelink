@@ -1,109 +1,120 @@
 import { useEffect, useRef, useState } from 'react'
+import type { AppNotification } from '@tradelink/types'
 import { API_URL } from '../lib/api'
+import { timeAgo } from '../lib/date'
 import { useT } from '../lib/i18n'
+import { wsClient } from '../services/websocket'
 
-interface Notification {
-  id: string
-  title: string
-  body: string
+const ICONS: Record<string, string> = {
+  NEW_QUOTE: '📋',
+  QUOTE_ACCEPTED: '🎉',
+  QUOTE_REJECTED: '📭',
+  NEW_MESSAGE: '💬',
+  JOB_AWARDED: '🏆',
+  JOB_COMPLETED: '✅',
+  QUESTION_ANSWERED: '💡',
+  NEW_JOB_IN_AREA: '🔔',
 }
 
-interface Props {
-  unread: number
-  onRead: () => void
-}
-
-export function NotificationBell({ unread, onRead }: Props) {
+export function NotificationBell() {
   const { t } = useT()
+  const [notifications, setNotifications] = useState<AppNotification[]>([])
   const [open, setOpen] = useState(false)
-  const [notifications, setNotifications] = useState<Notification[]>([])
-  const [loading, setLoading] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
+  const token = localStorage.getItem('token')
 
-  useEffect(() => {
-    if (!open) return
-    setLoading(true)
-    const token = localStorage.getItem('token')
+  const unreadCount = notifications.filter((n) => !n.readAt).length
+
+  const load = () => {
     fetch(`${API_URL}/notifications`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((r) => r.json())
-      .then((data) => {
-        if (Array.isArray(data)) setNotifications(data)
-      })
+      .then((data) => { if (Array.isArray(data)) setNotifications(data) })
       .catch(() => {})
-      .finally(() => setLoading(false))
-  }, [open])
+  }
 
   useEffect(() => {
-    if (!open) return
+    load()
+    const off = wsClient.on('NEW_NOTIFICATION', (data) => {
+      setNotifications((prev) => [data as AppNotification, ...prev])
+    })
+    return off
+  }, [])
+
+  // Close on outside click
+  useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false)
-      }
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
-  }, [open])
+  }, [])
 
-  const handleMarkAllRead = async () => {
-    const token = localStorage.getItem('token')
-    await fetch(`${API_URL}/notifications/read`, {
+  const markRead = async (id: string) => {
+    await fetch(`${API_URL}/notifications/${id}/read`, {
       method: 'PATCH',
       headers: { Authorization: `Bearer ${token}` },
-    }).catch(() => {})
-    onRead()
+    })
+    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, readAt: new Date().toISOString() } : n)))
+  }
+
+  const markAllRead = async () => {
+    await fetch(`${API_URL}/notifications/read-all`, {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    setNotifications((prev) => prev.map((n) => ({ ...n, readAt: n.readAt ?? new Date().toISOString() })))
   }
 
   return (
     <div ref={ref} className="relative">
       <button
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => setOpen((o) => !o)}
         className="relative p-2 rounded-lg hover:bg-gray-100 transition-colors"
         aria-label="Notifications"
       >
-        <svg
-          className="w-5 h-5 text-gray-600"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          strokeWidth={1.8}
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
-          />
-        </svg>
-        {unread > 0 && (
-          <span className="absolute top-1 right-1 min-w-[16px] h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-0.5">
-            {unread > 9 ? '9+' : unread}
+        <span className="text-xl">🔔</span>
+        {unreadCount > 0 && (
+          <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1">
+            {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-2 w-80 bg-white border border-gray-200 rounded-2xl shadow-xl z-50 overflow-hidden">
+        <div className="absolute right-0 mt-2 w-80 bg-white border border-gray-200 rounded-2xl shadow-xl z-50 overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-            <span className="text-sm font-semibold text-gray-900">{t('notifications')}</span>
-            <button
-              onClick={handleMarkAllRead}
-              className="text-xs text-blue-600 hover:underline"
-            >
-              {t('markAllRead')}
-            </button>
+            <h3 className="font-semibold text-gray-900 text-sm">{t('notifications')}</h3>
+            {unreadCount > 0 && (
+              <button onClick={markAllRead} className="text-xs text-blue-600 hover:underline font-medium">
+                {t('markAllRead')}
+              </button>
+            )}
           </div>
-          <div className="max-h-80 overflow-y-auto">
-            {loading ? (
-              <p className="text-sm text-gray-500 text-center py-6">{t('loading')}</p>
-            ) : notifications.length === 0 ? (
-              <p className="text-sm text-gray-500 text-center py-6">{t('noNotifications')}</p>
+
+          <div className="max-h-96 overflow-y-auto divide-y divide-gray-50">
+            {notifications.length === 0 ? (
+              <p className="text-center text-sm text-gray-400 py-8">{t('noNotifications')}</p>
             ) : (
-              notifications.map((n) => (
-                <div key={n.id} className="px-4 py-3 border-b border-gray-50 last:border-0">
-                  <p className="text-sm font-medium text-gray-900">{n.title}</p>
-                  <p className="text-xs text-gray-500 mt-0.5">{n.body}</p>
-                </div>
+              notifications.slice(0, 20).map((n) => (
+                <button
+                  key={n.id}
+                  onClick={() => { markRead(n.id); setOpen(false) }}
+                  className={`w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors ${!n.readAt ? 'bg-blue-50/60' : ''}`}
+                >
+                  <div className="flex items-start gap-2.5">
+                    <span className="text-lg shrink-0 mt-0.5">{ICONS[n.type] ?? '🔔'}</span>
+                    <div className="min-w-0">
+                      <p className={`text-sm ${!n.readAt ? 'font-semibold text-gray-900' : 'text-gray-700'} truncate`}>
+                        {n.title}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{n.body}</p>
+                      <p className="text-xs text-gray-400 mt-1">{timeAgo(n.createdAt)}</p>
+                    </div>
+                    {!n.readAt && <span className="w-2 h-2 bg-blue-500 rounded-full shrink-0 mt-1.5" />}
+                  </div>
+                </button>
               ))
             )}
           </div>

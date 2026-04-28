@@ -77,6 +77,12 @@ export function Dashboard({ user, activeMode, onModeChange, onUserUpdate, onLogo
     setSelectedContractorSlug(null)
   }, [activeMode])
 
+  const handleOpenMessages = (conversationId?: string) => {
+    setSelectedConversationId(conversationId ?? null)
+    setView('messages')
+    setMsgUnread(0)
+  }
+
   const hasBoth = user.hasClientProfile && user.hasContractorProfile
   const isClientMode = activeMode === 'CLIENT'
   const missingRole: ActiveMode | null = !user.hasClientProfile
@@ -251,6 +257,7 @@ export function Dashboard({ user, activeMode, onModeChange, onUserUpdate, onLogo
                     jobId={selectedJobId}
                     onBack={handleBack}
                     onDeleted={handleBack}
+                    onOpenConversation={handleOpenMessages}
                   />
                 )}
               </>
@@ -300,7 +307,11 @@ export function Dashboard({ user, activeMode, onModeChange, onUserUpdate, onLogo
                   </>
                 )}
                 {view === 'detail' && selectedJobId && (
-                  <ContractorJobDetail jobId={selectedJobId} onBack={handleBack} />
+                  <ContractorJobDetail
+                    jobId={selectedJobId}
+                    onBack={handleBack}
+                    onOpenConversation={handleOpenMessages}
+                  />
                 )}
               </>
             )}

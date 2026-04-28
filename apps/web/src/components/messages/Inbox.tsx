@@ -1,22 +1,10 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
+import type { Conversation, Message } from '@tradelink/types'
 import { API_URL } from '../../lib/api'
-import { timeAgo } from '../../lib/date'
 import { useT } from '../../lib/i18n'
-
-interface Conversation {
-  id: string
-  job: { id: string; title: string }
-  otherUser: { id: string; name: string }
-  lastMessage: { content: string; createdAt: string } | null
-  unreadCount: number
-}
-
-interface Message {
-  id: string
-  content: string
-  senderId: string
-  createdAt: string
-}
+import { timeAgo } from '../../lib/date'
+import { wsClient } from '../../services/websocket'
+import { ConversationView } from './ConversationView'
 
 interface Props {
   userId: string
@@ -27,175 +15,146 @@ export function Inbox({ userId, initialConversationId }: Props) {
   const { t } = useT()
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(initialConversationId ?? null)
-  const [messages, setMessages] = useState<Message[]>([])
-  const [loadingConvs, setLoadingConvs] = useState(true)
-  const [loadingMsgs, setLoadingMsgs] = useState(false)
-  const [input, setInput] = useState('')
-  const [sending, setSending] = useState(false)
-  const bottomRef = useRef<HTMLDivElement>(null)
+  const [loading, setLoading] = useState(true)
   const token = localStorage.getItem('token')
 
-  useEffect(() => {
-    fetch(`${API_URL}/conversations`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
+  const load = () => {
+    fetch(`${API_URL}/conversations`, { headers: { Authorization: `Bearer ${token}` } })
       .then((r) => r.json())
-      .then((data) => {
-        if (Array.isArray(data)) setConversations(data)
-      })
+      .then((data) => { if (Array.isArray(data)) setConversations(data) })
       .catch(() => {})
-      .finally(() => setLoadingConvs(false))
-  }, [])
+      .finally(() => setLoading(false))
+  }
 
   useEffect(() => {
-    if (!selectedId) return
-    setLoadingMsgs(true)
-    fetch(`${API_URL}/conversations/${selectedId}/messages`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((r) => r.json())
-      .then((data) => {
-        if (Array.isArray(data)) setMessages(data)
+    load()
+    const off = wsClient.on('NEW_MESSAGE', (data: unknown) => {
+      const d = data as { conversationId: string; message: Message }
+      const convId = d.conversationId
+      setConversations((prev) => {
+        const updated = prev.map((c) =>
+          c.id === convId
+            ? {
+                ...c,
+                lastMessage: d.message,
+                lastMessageAt: d.message.createdAt,
+                unreadCount: selectedId === convId ? 0 : c.unreadCount + 1,
+              }
+            : c
+        )
+        return [...updated].sort(
+          (a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime()
+        )
       })
-      .catch(() => {})
-      .finally(() => setLoadingMsgs(false))
+    })
+    return off
   }, [selectedId])
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+    if (initialConversationId) setSelectedId(initialConversationId)
+  }, [initialConversationId])
 
-  const selected = conversations.find((c) => c.id === selectedId) ?? null
+  const selected = conversations.find((c) => c.id === selectedId)
 
-  const handleSend = async () => {
-    const content = input.trim()
-    if (!content || !selectedId || sending) return
-    setSending(true)
-    setInput('')
-    try {
-      const res = await fetch(`${API_URL}/conversations/${selectedId}/messages`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ content }),
-      })
-      const data = await res.json()
-      if (res.ok && data.id) {
-        setMessages((prev) => [...prev, data])
-      }
-    } catch {
-      //
-    } finally {
-      setSending(false)
-    }
-  }
+  if (loading) return <div className="text-center py-20 text-gray-400">{t('loading')}</div>
 
   return (
-    <div className="flex gap-4 h-[calc(100vh-10rem)] min-h-0">
-      {/* Conversation list */}
-      <div className="w-64 shrink-0 bg-white border border-gray-200 rounded-2xl overflow-y-auto">
-        {loadingConvs ? (
-          <p className="text-sm text-gray-500 text-center py-6">{t('loading')}</p>
-        ) : conversations.length === 0 ? (
-          <p className="text-sm text-gray-500 text-center py-6">{t('noConversations')}</p>
+    <div className="flex gap-0 h-[calc(100vh-160px)] min-h-96">
+      {/* Sidebar */}
+      <div
+        className={`flex flex-col ${selectedId ? 'hidden sm:flex' : 'flex'} w-full sm:w-72 border-r border-gray-200 shrink-0`}
+      >
+        <h2 className="text-lg font-bold text-gray-900 px-4 py-3 border-b border-gray-100">Messages</h2>
+        {conversations.length === 0 ? (
+          <div className="flex-1 flex items-center justify-center text-center px-6">
+            <div>
+              <p className="text-4xl mb-3">💬</p>
+              <p className="text-sm text-gray-500">{t('noConversations')}</p>
+              <p className="text-xs text-gray-400 mt-1">Start by messaging a contractor on a job.</p>
+            </div>
+          </div>
         ) : (
-          conversations.map((c) => (
-            <button
-              key={c.id}
-              onClick={() => setSelectedId(c.id)}
-              className={`w-full text-left px-4 py-3 border-b border-gray-100 last:border-0 transition-colors ${
-                c.id === selectedId ? 'bg-blue-50' : 'hover:bg-gray-50'
-              }`}
-            >
-              <div className="flex items-center justify-between mb-0.5">
-                <span className="text-sm font-medium text-gray-900 truncate">{c.otherUser.name}</span>
-                {c.unreadCount > 0 && (
-                  <span className="ml-1 min-w-[18px] h-[18px] bg-blue-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1 shrink-0">
-                    {c.unreadCount}
-                  </span>
-                )}
-              </div>
-              <p className="text-xs text-gray-400 truncate">{c.job.title}</p>
-              {c.lastMessage && (
-                <p className="text-xs text-gray-500 truncate mt-0.5">
-                  {c.lastMessage.content}
-                </p>
-              )}
-              {c.lastMessage && (
-                <p className="text-xs text-gray-400 mt-0.5">{timeAgo(c.lastMessage.createdAt)}</p>
-              )}
-            </button>
-          ))
+          <div className="flex-1 overflow-y-auto divide-y divide-gray-50">
+            {conversations.map((conv) => {
+              const other =
+                conv.client.user.id === userId ? conv.contractor.user : conv.client.user
+              const isActive = conv.id === selectedId
+              return (
+                <button
+                  key={conv.id}
+                  onClick={() => {
+                    setSelectedId(conv.id)
+                    setConversations((prev) =>
+                      prev.map((c) => (c.id === conv.id ? { ...c, unreadCount: 0 } : c))
+                    )
+                  }}
+                  className={`w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors flex items-start gap-3 ${
+                    isActive ? 'bg-blue-50 border-l-2 border-blue-500' : ''
+                  }`}
+                >
+                  <div className="w-9 h-9 rounded-full bg-gray-200 flex items-center justify-center text-sm font-bold text-gray-600 shrink-0">
+                    {other.name.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-1">
+                      <p
+                        className={`text-sm truncate ${
+                          conv.unreadCount > 0
+                            ? 'font-bold text-gray-900'
+                            : 'font-medium text-gray-700'
+                        }`}
+                      >
+                        {other.name}
+                      </p>
+                      {conv.lastMessage && (
+                        <span className="text-xs text-gray-400 shrink-0">
+                          {timeAgo(conv.lastMessage.createdAt)}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-gray-500 truncate">
+                      {conv.job.category.icon} {conv.job.title}
+                    </p>
+                    {conv.lastMessage && (
+                      <p
+                        className={`text-xs truncate mt-0.5 ${
+                          conv.unreadCount > 0
+                            ? 'font-semibold text-gray-800'
+                            : 'text-gray-400'
+                        }`}
+                      >
+                        {conv.lastMessage.senderId === userId ? 'You: ' : ''}
+                        {conv.lastMessage.content}
+                      </p>
+                    )}
+                  </div>
+                  {conv.unreadCount > 0 && (
+                    <span className="shrink-0 min-w-[20px] h-5 bg-blue-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1">
+                      {conv.unreadCount}
+                    </span>
+                  )}
+                </button>
+              )
+            })}
+          </div>
         )}
       </div>
 
-      {/* Message thread */}
-      <div className="flex-1 flex flex-col bg-white border border-gray-200 rounded-2xl min-h-0 overflow-hidden">
-        {!selectedId ? (
-          <div className="flex-1 flex items-center justify-center text-sm text-gray-400">
-            {t('selectConversation')}
-          </div>
+      {/* Conversation panel */}
+      <div className={`flex-1 ${selectedId ? 'flex' : 'hidden sm:flex'} flex-col`}>
+        {selected ? (
+          <ConversationView
+            conversation={selected}
+            userId={userId}
+            onBack={() => setSelectedId(null)}
+          />
         ) : (
-          <>
-            {/* Header */}
-            <div className="px-4 py-3 border-b border-gray-100 shrink-0">
-              {selected && (
-                <>
-                  <p className="text-sm font-semibold text-gray-900">{selected.otherUser.name}</p>
-                  <p className="text-xs text-gray-400">{selected.job.title}</p>
-                </>
-              )}
+          <div className="flex-1 flex items-center justify-center text-center text-gray-400">
+            <div>
+              <p className="text-4xl mb-3">💬</p>
+              <p className="text-sm">{t('selectConversation')}</p>
             </div>
-
-            {/* Messages */}
-            <div className="flex-1 overflow-y-auto px-4 py-4 space-y-2">
-              {loadingMsgs ? (
-                <p className="text-sm text-gray-400 text-center py-6">{t('loading')}</p>
-              ) : (
-                messages.map((m) => {
-                  const mine = m.senderId === userId
-                  return (
-                    <div key={m.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
-                      <div
-                        className={`max-w-[70%] px-3 py-2 rounded-xl text-sm ${
-                          mine
-                            ? 'bg-blue-600 text-white'
-                            : 'bg-gray-100 text-gray-900'
-                        }`}
-                      >
-                        <p>{m.content}</p>
-                        <p className={`text-[10px] mt-1 ${mine ? 'text-blue-200' : 'text-gray-400'}`}>
-                          {timeAgo(m.createdAt)}
-                        </p>
-                      </div>
-                    </div>
-                  )
-                })
-              )}
-              <div ref={bottomRef} />
-            </div>
-
-            {/* Input */}
-            <div className="px-4 py-3 border-t border-gray-100 shrink-0 flex gap-2">
-              <input
-                type="text"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                placeholder={t('typeMessage')}
-                className="flex-1 px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <button
-                onClick={handleSend}
-                disabled={!input.trim() || sending}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white text-sm font-medium rounded-lg transition-colors"
-              >
-                {t('sendBtn')}
-              </button>
-            </div>
-          </>
+          </div>
         )}
       </div>
     </div>
