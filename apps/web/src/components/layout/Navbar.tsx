@@ -182,7 +182,7 @@ export function Navbar({
           </div>
 
           {/* Notification bell */}
-          <NotificationBell unread={notifUnread} onRead={onNotifRead} />
+          <NotificationBell />
 
           {/* Desktop: avatar + dropdown */}
           <div className="relative hidden md:block">
