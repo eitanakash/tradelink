@@ -1,7 +1,11 @@
 import { useEffect, useState } from 'react'
 import type { UserProfile, ActiveMode } from '@tradelink/types'
 import { API_URL } from '../lib/api'
+import { useT } from '../lib/i18n'
 import { US_STATES } from '../lib/states'
+import { wsClient } from '../services/websocket'
+import { useToast } from './Toast'
+import { Navbar } from './layout/Navbar'
 import { ClientJobList } from './client/ClientJobList'
 import { ClientJobDetail } from './client/ClientJobDetail'
 import { PostJobModal } from './client/PostJobModal'
@@ -9,6 +13,9 @@ import { ContractorJobFeed } from './contractor/ContractorJobFeed'
 import { ContractorJobDetail } from './contractor/ContractorJobDetail'
 import { ContractorQuoteList } from './contractor/ContractorQuoteList'
 import { ContractorProfile } from './contractor/ContractorProfile'
+import { Inbox } from './messages/Inbox'
+import { FindContractors } from './directory/FindContractors'
+import { ContractorPublicProfile } from './contractor/ContractorPublicProfile'
 
 interface Props {
   user: UserProfile
@@ -18,10 +25,13 @@ interface Props {
   onLogout: () => void
 }
 
-type View = 'list' | 'detail'
+type View = 'list' | 'detail' | 'messages' | 'find-contractors'
 type ContractorTab = 'feed' | 'quotes' | 'profile'
 
 export function Dashboard({ user, activeMode, onModeChange, onUserUpdate, onLogout }: Props) {
+  const { toast } = useToast()
+  const { t } = useT()
+
   const [view, setView] = useState<View>('list')
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null)
   const [showPostJob, setShowPostJob] = useState(false)
@@ -32,10 +42,39 @@ export function Dashboard({ user, activeMode, onModeChange, onUserUpdate, onLogo
   const [contractorState, setContractorState] = useState('')
   const [showStatePrompt, setShowStatePrompt] = useState(false)
 
+  const [selectedContractorSlug, setSelectedContractorSlug] = useState<string | null>(null)
+  const [msgUnread, setMsgUnread] = useState(0)
+  const [notifUnread, setNotifUnread] = useState(0)
+  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null)
+
+  // Connect WebSocket on mount
+  useEffect(() => {
+    const token = localStorage.getItem('token')
+    if (token) wsClient.connect(token)
+
+    const unsubMsg = wsClient.on('NEW_MESSAGE', () => {
+      setMsgUnread((n) => n + 1)
+    })
+    const unsubQuote = wsClient.on('QUOTE_SUBMITTED', () => {
+      toast(t('quoteSubmittedToast'), 'info')
+    })
+    const unsubNotif = wsClient.on('NEW_NOTIFICATION', () => {
+      setNotifUnread((n) => n + 1)
+    })
+
+    return () => {
+      unsubMsg()
+      unsubQuote()
+      unsubNotif()
+      wsClient.disconnect()
+    }
+  }, [])
+
   useEffect(() => {
     setView('list')
     setSelectedJobId(null)
     setContractorTab('feed')
+    setSelectedContractorSlug(null)
   }, [activeMode])
 
   const hasBoth = user.hasClientProfile && user.hasContractorProfile
@@ -85,111 +124,185 @@ export function Dashboard({ user, activeMode, onModeChange, onUserUpdate, onLogo
     }
   }
 
+  // Compute active page for nav highlighting
+  const activePage = (() => {
+    if (view === 'messages') return 'messages'
+    if (view === 'find-contractors') return 'find-contractors'
+    if (isClientMode) return 'my-jobs'
+    if (contractorTab === 'feed') return 'browse-jobs'
+    if (contractorTab === 'quotes') return 'my-quotes'
+    if (contractorTab === 'profile') return 'my-profile'
+    return ''
+  })()
+
+  const handleNavigate = (page: string) => {
+    switch (page) {
+      case 'my-jobs':
+        setView('list')
+        setSelectedJobId(null)
+        break
+      case 'post-job':
+        setShowPostJob(true)
+        break
+      case 'find-contractors':
+        setView('find-contractors')
+        setSelectedContractorSlug(null)
+        break
+      case 'messages':
+        setView('messages')
+        setMsgUnread(0)
+        break
+      case 'browse-jobs':
+        setContractorTab('feed')
+        setView('list')
+        setSelectedJobId(null)
+        break
+      case 'my-quotes':
+        setContractorTab('quotes')
+        setView('list')
+        setSelectedJobId(null)
+        break
+      case 'my-profile':
+        setContractorTab('profile')
+        setView('list')
+        setSelectedJobId(null)
+        break
+      case 'become-contractor':
+        if (missingRole === 'CONTRACTOR') setShowStatePrompt(true)
+        break
+      case 'become-client':
+        handleAddRole('CLIENT')
+        break
+    }
+  }
+
+  const handleModeChange = (mode: ActiveMode) => {
+    onModeChange(mode)
+    toast(
+      mode === 'CONTRACTOR' ? t('switchedToContractor') : t('switchedToClient'),
+      'info',
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
-      {/* Navbar */}
-      <nav className="bg-white border-b border-gray-200">
-        <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
-          <span className="text-xl font-bold text-gray-900">Tradelink</span>
-          <div className="flex items-center gap-3">
-            {hasBoth && (
-              <div className="flex items-center bg-gray-100 rounded-lg p-1">
-                <button
-                  onClick={() => onModeChange('CLIENT')}
-                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
-                    activeMode === 'CLIENT'
-                      ? 'bg-white text-blue-700 shadow-sm'
-                      : 'text-gray-500 hover:text-gray-700'
-                  }`}
-                >
-                  Client mode
-                </button>
-                <button
-                  onClick={() => onModeChange('CONTRACTOR')}
-                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
-                    activeMode === 'CONTRACTOR'
-                      ? 'bg-white text-violet-700 shadow-sm'
-                      : 'text-gray-500 hover:text-gray-700'
-                  }`}
-                >
-                  Contractor mode
-                </button>
-              </div>
-            )}
-            <span className="text-sm text-gray-400 hidden sm:block">{user.email}</span>
-            <button
-              onClick={onLogout}
-              className="text-sm font-medium text-gray-500 hover:text-red-600 transition-colors"
-            >
-              Logout
-            </button>
-          </div>
-        </div>
-      </nav>
+      <Navbar
+        user={user}
+        activeMode={activeMode}
+        activePage={activePage}
+        msgUnread={msgUnread}
+        notifUnread={notifUnread}
+        onNotifRead={() => setNotifUnread(0)}
+        onModeChange={handleModeChange}
+        onNavigate={handleNavigate}
+        onLogout={onLogout}
+      />
 
       {/* Main content */}
       <main className="flex-1 max-w-3xl w-full mx-auto px-6 py-10">
-        {isClientMode ? (
+        {/* Messages view */}
+        {view === 'messages' && (
+          <div>
+            <div className="flex items-center gap-3 mb-6">
+              <button
+                onClick={() => setView('list')}
+                className="text-sm text-blue-600 hover:underline flex items-center gap-1"
+              >
+                {t('backBtn')}
+              </button>
+              <h1 className="text-xl font-bold text-gray-900">{t('messagesTitle')}</h1>
+            </div>
+            <Inbox
+              userId={user.id}
+              initialConversationId={selectedConversationId}
+            />
+          </div>
+        )}
+
+        {/* Find Contractors view */}
+        {view === 'find-contractors' && (
           <>
-            {view === 'list' && (
-              <ClientJobList
-                onSelectJob={handleSelectJob}
-                onPostJob={() => setShowPostJob(true)}
+            {selectedContractorSlug ? (
+              <ContractorPublicProfile
+                slugOrId={selectedContractorSlug}
+                onBack={() => setSelectedContractorSlug(null)}
+              />
+            ) : (
+              <FindContractors
+                onSelectContractor={(slugOrId) => setSelectedContractorSlug(slugOrId)}
               />
             )}
-            {view === 'detail' && selectedJobId && (
-              <ClientJobDetail jobId={selectedJobId} onBack={handleBack} onDeleted={handleBack} />
-            )}
           </>
-        ) : (
+        )}
+
+        {/* Job views */}
+        {view !== 'messages' && view !== 'find-contractors' && (
           <>
-            {view === 'list' && (
+            {isClientMode ? (
               <>
-                <div className="flex border-b border-gray-200 mb-6">
-                  <button
-                    onClick={() => setContractorTab('feed')}
-                    className={`px-4 pb-3 text-sm font-medium transition-colors ${
-                      contractorTab === 'feed'
-                        ? 'border-b-2 border-violet-500 text-violet-700'
-                        : 'text-gray-500 hover:text-gray-700'
-                    }`}
-                  >
-                    Browse Jobs
-                  </button>
-                  <button
-                    onClick={() => setContractorTab('quotes')}
-                    className={`px-4 pb-3 text-sm font-medium transition-colors ${
-                      contractorTab === 'quotes'
-                        ? 'border-b-2 border-violet-500 text-violet-700'
-                        : 'text-gray-500 hover:text-gray-700'
-                    }`}
-                  >
-                    My Quotes
-                  </button>
-                  <button
-                    onClick={() => setContractorTab('profile')}
-                    className={`px-4 pb-3 text-sm font-medium transition-colors ${
-                      contractorTab === 'profile'
-                        ? 'border-b-2 border-violet-500 text-violet-700'
-                        : 'text-gray-500 hover:text-gray-700'
-                    }`}
-                  >
-                    Profile
-                  </button>
-                </div>
-                {contractorTab === 'feed' && (
-                  <ContractorJobFeed onSelectJob={handleSelectJob} />
+                {view === 'list' && (
+                  <ClientJobList
+                    onSelectJob={handleSelectJob}
+                    onPostJob={() => setShowPostJob(true)}
+                  />
                 )}
-                {contractorTab === 'quotes' && (
-                  <ContractorQuoteList onSelectJob={handleSelectJob} />
-                )}
-                {contractorTab === 'profile' && (
-                  <ContractorProfile />
+                {view === 'detail' && selectedJobId && (
+                  <ClientJobDetail
+                    jobId={selectedJobId}
+                    onBack={handleBack}
+                    onDeleted={handleBack}
+                  />
                 )}
               </>
-            )}
-            {view === 'detail' && selectedJobId && (
-              <ContractorJobDetail jobId={selectedJobId} onBack={handleBack} />
+            ) : (
+              <>
+                {view === 'list' && (
+                  <>
+                    <div className="flex border-b border-gray-200 mb-6">
+                      <button
+                        onClick={() => setContractorTab('feed')}
+                        className={`px-4 pb-3 text-sm font-medium transition-colors ${
+                          contractorTab === 'feed'
+                            ? 'border-b-2 border-violet-500 text-violet-700'
+                            : 'text-gray-500 hover:text-gray-700'
+                        }`}
+                      >
+                        {t('navBrowseJobs')}
+                      </button>
+                      <button
+                        onClick={() => setContractorTab('quotes')}
+                        className={`px-4 pb-3 text-sm font-medium transition-colors ${
+                          contractorTab === 'quotes'
+                            ? 'border-b-2 border-violet-500 text-violet-700'
+                            : 'text-gray-500 hover:text-gray-700'
+                        }`}
+                      >
+                        {t('navMyQuotes')}
+                      </button>
+                      <button
+                        onClick={() => setContractorTab('profile')}
+                        className={`px-4 pb-3 text-sm font-medium transition-colors ${
+                          contractorTab === 'profile'
+                            ? 'border-b-2 border-violet-500 text-violet-700'
+                            : 'text-gray-500 hover:text-gray-700'
+                        }`}
+                      >
+                        {t('navMyProfile')}
+                      </button>
+                    </div>
+                    {contractorTab === 'feed' && (
+                      <ContractorJobFeed onSelectJob={handleSelectJob} />
+                    )}
+                    {contractorTab === 'quotes' && (
+                      <ContractorQuoteList onSelectJob={handleSelectJob} />
+                    )}
+                    {contractorTab === 'profile' && <ContractorProfile />}
+                  </>
+                )}
+                {view === 'detail' && selectedJobId && (
+                  <ContractorJobDetail jobId={selectedJobId} onBack={handleBack} />
+                )}
+              </>
             )}
           </>
         )}
@@ -199,11 +312,11 @@ export function Dashboard({ user, activeMode, onModeChange, onUserUpdate, onLogo
       {missingRole && (
         <div className="max-w-3xl w-full mx-auto px-6 pb-10">
           <div className="bg-white border border-gray-200 rounded-2xl p-6">
-            <h2 className="text-base font-semibold text-gray-900 mb-1">Expand your account</h2>
+            <h2 className="text-base font-semibold text-gray-900 mb-1">{t('expandAccount')}</h2>
             <p className="text-sm text-gray-500 mb-4">
               {missingRole === 'CONTRACTOR'
-                ? 'Got skills to offer? Join as a contractor and find work on your own schedule.'
-                : 'Need work done? Join as a client and post jobs for contractors to apply.'}
+                ? t('becomeContractorPitch')
+                : t('becomeClientPitch')}
             </p>
             {roleError && <p className="text-sm text-red-600 mb-3">{roleError}</p>}
 
@@ -211,14 +324,14 @@ export function Dashboard({ user, activeMode, onModeChange, onUserUpdate, onLogo
               <div className="space-y-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    State you work in
+                    {t('stateYouWorkIn')}
                   </label>
                   <select
                     value={contractorState}
                     onChange={(e) => setContractorState(e.target.value)}
                     className="w-full px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    <option value="">Select a state…</option>
+                    <option value="">{t('selectState')}</option>
                     {US_STATES.map((s) => (
                       <option key={s.code} value={s.code}>
                         {s.name}
@@ -231,14 +344,14 @@ export function Dashboard({ user, activeMode, onModeChange, onUserUpdate, onLogo
                     onClick={() => setShowStatePrompt(false)}
                     className="px-4 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors"
                   >
-                    Cancel
+                    {t('cancel')}
                   </button>
                   <button
                     onClick={() => handleAddRole('CONTRACTOR', contractorState)}
                     disabled={addingRole || !contractorState}
                     className="px-5 py-2 bg-gray-900 hover:bg-gray-700 disabled:bg-gray-400 text-white text-sm font-semibold rounded-lg transition-colors"
                   >
-                    {addingRole ? 'Setting up…' : 'Join as Contractor'}
+                    {addingRole ? t('settingUp') : t('joinAsContractor')}
                   </button>
                 </div>
               </div>
@@ -255,10 +368,10 @@ export function Dashboard({ user, activeMode, onModeChange, onUserUpdate, onLogo
                 className="px-5 py-2.5 bg-gray-900 hover:bg-gray-700 disabled:bg-gray-400 text-white text-sm font-semibold rounded-lg transition-colors"
               >
                 {addingRole
-                  ? 'Setting up…'
+                  ? t('settingUp')
                   : missingRole === 'CONTRACTOR'
-                  ? 'Also join as a Contractor'
-                  : 'Also join as a Client'}
+                  ? t('alsoJoinAsContractor')
+                  : t('alsoJoinAsClient')}
               </button>
             )}
           </div>

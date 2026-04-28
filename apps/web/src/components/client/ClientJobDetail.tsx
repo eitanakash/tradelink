@@ -3,6 +3,7 @@ import type { Job, JobQuote, TradeCategory, FileUploadRecord } from '@tradelink/
 import { API_URL } from '../../lib/api'
 import { US_STATES } from '../../lib/states'
 import { FileUpload } from '../FileUpload'
+import { useT } from '../../lib/i18n'
 
 const STATUS_COLORS: Record<string, string> = {
   OPEN: 'bg-green-100 text-green-700',
@@ -27,6 +28,7 @@ interface Props {
 }
 
 export function ClientJobDetail({ jobId, onBack, onDeleted }: Props) {
+  const { t } = useT()
   const [job, setJob] = useState<Job | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -139,7 +141,7 @@ export function ClientJobDetail({ jobId, onBack, onDeleted }: Props) {
     }
   }
 
-  if (loading) return <div className="text-center py-20 text-gray-400">Loading…</div>
+  if (loading) return <div className="text-center py-20 text-gray-400">{t('loadingDots')}</div>
   if (error || !job) return <div className="text-center py-20 text-red-500">{error || 'Job not found'}</div>
 
   const pendingQuotes = job.quotes?.filter((q) => q.status === 'PENDING') ?? []
@@ -152,13 +154,13 @@ export function ClientJobDetail({ jobId, onBack, onDeleted }: Props) {
   return (
     <div>
       <button onClick={onBack} className="text-sm text-blue-600 hover:underline mb-6 flex items-center gap-1">
-        ← Back to jobs
+        {t('backToJobs')}
       </button>
 
       {/* Job card */}
       {editing ? (
         <div className="bg-white border border-gray-200 rounded-2xl p-6 mb-6">
-          <h3 className="font-semibold text-gray-900 mb-4">Edit Job</h3>
+          <h3 className="font-semibold text-gray-900 mb-4">{t('editJob')}</h3>
           {saveError && (
             <div className="mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
               {saveError}
@@ -166,7 +168,7 @@ export function ClientJobDetail({ jobId, onBack, onDeleted }: Props) {
           )}
           <form onSubmit={handleSaveEdit} className="space-y-4">
             <div>
-              <label className={labelCls}>Category</label>
+              <label className={labelCls}>{t('categoryLabel')}</label>
               <select
                 value={editCategoryId}
                 onChange={(e) => setEditCategoryId(e.target.value)}
@@ -180,7 +182,7 @@ export function ClientJobDetail({ jobId, onBack, onDeleted }: Props) {
               </select>
             </div>
             <div>
-              <label className={labelCls}>Title</label>
+              <label className={labelCls}>{t('titleLabel')}</label>
               <input
                 type="text"
                 required
@@ -190,7 +192,7 @@ export function ClientJobDetail({ jobId, onBack, onDeleted }: Props) {
               />
             </div>
             <div>
-              <label className={labelCls}>Description</label>
+              <label className={labelCls}>{t('descriptionLabel')}</label>
               <textarea
                 required
                 value={editDescription}
@@ -200,7 +202,7 @@ export function ClientJobDetail({ jobId, onBack, onDeleted }: Props) {
               />
             </div>
             <div>
-              <label className={labelCls}>Street address</label>
+              <label className={labelCls}>{t('streetAddress')}</label>
               <input
                 type="text"
                 required
@@ -211,7 +213,7 @@ export function ClientJobDetail({ jobId, onBack, onDeleted }: Props) {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className={labelCls}>City</label>
+                <label className={labelCls}>{t('cityLabel')}</label>
                 <input
                   type="text"
                   required
@@ -221,7 +223,7 @@ export function ClientJobDetail({ jobId, onBack, onDeleted }: Props) {
                 />
               </div>
               <div>
-                <label className={labelCls}>State</label>
+                <label className={labelCls}>{t('stateLabel')}</label>
                 <select
                   value={editState}
                   onChange={(e) => setEditState(e.target.value)}
@@ -239,14 +241,14 @@ export function ClientJobDetail({ jobId, onBack, onDeleted }: Props) {
                 onClick={() => setEditing(false)}
                 className="flex-1 py-2.5 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors"
               >
-                Cancel
+                {t('cancel')}
               </button>
               <button
                 type="submit"
                 disabled={saving}
                 className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-sm font-semibold rounded-lg transition-colors"
               >
-                {saving ? 'Saving…' : 'Save Changes'}
+                {saving ? t('saving') : t('saveChanges')}
               </button>
             </div>
           </form>
@@ -274,23 +276,23 @@ export function ClientJobDetail({ jobId, onBack, onDeleted }: Props) {
                 onClick={startEdit}
                 className="px-4 py-1.5 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
               >
-                Edit
+                {t('editBtn')}
               </button>
               {confirmDelete ? (
                 <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-600">Delete this job?</span>
+                  <span className="text-sm text-gray-600">{t('deleteJobConfirm')}</span>
                   <button
                     onClick={handleDelete}
                     disabled={deleting}
                     className="px-3 py-1.5 bg-red-600 hover:bg-red-700 disabled:bg-red-300 text-white text-sm font-medium rounded-lg transition-colors"
                   >
-                    {deleting ? '…' : 'Yes, delete'}
+                    {deleting ? '…' : t('yesDelete')}
                   </button>
                   <button
                     onClick={() => setConfirmDelete(false)}
                     className="px-3 py-1.5 text-sm font-medium text-gray-500 hover:text-gray-700"
                   >
-                    Cancel
+                    {t('cancel')}
                   </button>
                 </div>
               ) : (
@@ -298,7 +300,7 @@ export function ClientJobDetail({ jobId, onBack, onDeleted }: Props) {
                   onClick={() => setConfirmDelete(true)}
                   className="px-4 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                 >
-                  Delete
+                  {t('deleteBtn')}
                 </button>
               )}
             </div>
@@ -309,8 +311,8 @@ export function ClientJobDetail({ jobId, onBack, onDeleted }: Props) {
       {/* Job media */}
       {canEdit(job.status) && (
         <div className="mb-6">
-          <h3 className="font-semibold text-gray-900 mb-1">Photos & Documents</h3>
-          <p className="text-sm text-gray-500 mb-3">Help contractors understand the job</p>
+          <h3 className="font-semibold text-gray-900 mb-1">{t('photosAndDocs')}</h3>
+          <p className="text-sm text-gray-500 mb-3">{t('photosAndDocsHint')}</p>
           <FileUpload
             category="JOB_PHOTO"
             jobId={jobId}
@@ -319,13 +321,13 @@ export function ClientJobDetail({ jobId, onBack, onDeleted }: Props) {
             onRemoved={(id) => setJobFiles((prev) => prev.filter((f) => f.id !== id))}
             maxFiles={20}
             accept="image/*,application/pdf,video/mp4,video/quicktime"
-            label="Add photos, videos or documents"
+            label={t('addFilesHint')}
           />
         </div>
       )}
       {!canEdit(job.status) && jobFiles.length > 0 && (
         <div className="mb-6">
-          <h3 className="font-semibold text-gray-900 mb-3">Attachments</h3>
+          <h3 className="font-semibold text-gray-900 mb-3">{t('attachments')}</h3>
           <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
             {jobFiles.map((f: FileUploadRecord) => {
               if (f.mimeType.startsWith('image/')) {
@@ -378,11 +380,11 @@ export function ClientJobDetail({ jobId, onBack, onDeleted }: Props) {
 
       {/* Quotes */}
       <h3 className="font-semibold text-gray-900 mb-3">
-        Quotes ({job.quotes?.length ?? 0})
+        {t('quotesLabel')} ({job.quotes?.length ?? 0})
       </h3>
 
       {(job.quotes?.length ?? 0) === 0 && (
-        <p className="text-sm text-gray-500 py-8 text-center">No quotes yet. Check back soon.</p>
+        <p className="text-sm text-gray-500 py-8 text-center">{t('noQuotesYet')}</p>
       )}
 
       <div className="space-y-3">
@@ -441,14 +443,14 @@ export function ClientJobDetail({ jobId, onBack, onDeleted }: Props) {
                   disabled={actioning === quote.id}
                   className="px-4 py-1.5 bg-green-600 hover:bg-green-700 disabled:bg-green-300 text-white text-sm font-medium rounded-lg transition-colors"
                 >
-                  {actioning === quote.id ? '…' : 'Accept'}
+                  {actioning === quote.id ? '…' : t('accept')}
                 </button>
                 <button
                   onClick={() => handleQuoteAction(quote, 'REJECT')}
                   disabled={actioning === quote.id}
                   className="px-4 py-1.5 bg-white hover:bg-gray-50 text-gray-700 text-sm font-medium rounded-lg border border-gray-300 transition-colors"
                 >
-                  Decline
+                  {t('decline')}
                 </button>
               </div>
             )}

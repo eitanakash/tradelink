@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { UserProfile, ActiveMode } from '@tradelink/types'
 import { API_URL } from '../lib/api'
 import { US_STATES } from '../lib/states'
+import { useT } from '../lib/i18n'
 
 interface Props {
   initialRole: ActiveMode
@@ -12,6 +13,7 @@ interface Props {
 type Tab = 'register' | 'login'
 
 export function AuthModal({ initialRole, onClose, onSuccess }: Props) {
+  const { t } = useT()
   const [tab, setTab] = useState<Tab>('register')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -105,7 +107,7 @@ export function AuthModal({ initialRole, onClose, onSuccess }: Props) {
           <div className="flex items-start justify-between mb-1">
             <div>
               <h2 className="text-2xl font-bold text-gray-900">
-                {tab === 'register' ? 'Create account' : 'Welcome back'}
+                {tab === 'register' ? t('createAccount') : t('welcomeBack')}
               </h2>
               {tab === 'register' && (
                 <span
@@ -115,7 +117,7 @@ export function AuthModal({ initialRole, onClose, onSuccess }: Props) {
                       : 'bg-violet-100 text-violet-700'
                   }`}
                 >
-                  Starting as {initialRole === 'CLIENT' ? 'Client' : 'Contractor'}
+                  {initialRole === 'CLIENT' ? t('startingAsClient') : t('startingAsContractor')}
                 </span>
               )}
             </div>
@@ -128,17 +130,17 @@ export function AuthModal({ initialRole, onClose, onSuccess }: Props) {
           </div>
 
           <div className="flex mt-6 border-b border-gray-200">
-            {(['register', 'login'] as Tab[]).map((t) => (
+            {(['register', 'login'] as Tab[]).map((tabOption) => (
               <button
-                key={t}
-                onClick={() => switchTab(t)}
+                key={tabOption}
+                onClick={() => switchTab(tabOption)}
                 className={`flex-1 pb-3 text-sm font-medium transition-colors ${
-                  tab === t
+                  tab === tabOption
                     ? 'border-b-2 border-blue-500 text-blue-600'
                     : 'text-gray-500 hover:text-gray-700'
                 }`}
               >
-                {t === 'register' ? 'Sign up' : 'Sign in'}
+                {tabOption === 'register' ? t('signUp') : t('signIn')}
               </button>
             ))}
           </div>
@@ -154,49 +156,49 @@ export function AuthModal({ initialRole, onClose, onSuccess }: Props) {
           {tab === 'register' ? (
             <form onSubmit={handleRegister} className="space-y-4">
               <div>
-                <label className={labelCls}>Full name</label>
+                <label className={labelCls}>{t('fullName')}</label>
                 <input
                   type="text"
                   required
                   value={regName}
                   onChange={(e) => setRegName(e.target.value)}
-                  placeholder="Jane Smith"
+                  placeholder={t('fullNamePlaceholder')}
                   className={inputCls}
                 />
               </div>
               <div>
-                <label className={labelCls}>Email</label>
+                <label className={labelCls}>{t('email')}</label>
                 <input
                   type="email"
                   required
                   value={regEmail}
                   onChange={(e) => setRegEmail(e.target.value)}
-                  placeholder="jane@example.com"
+                  placeholder={t('emailPlaceholder')}
                   className={inputCls}
                 />
               </div>
               <div>
-                <label className={labelCls}>Password</label>
+                <label className={labelCls}>{t('password')}</label>
                 <input
                   type="password"
                   required
                   minLength={8}
                   value={regPassword}
                   onChange={(e) => setRegPassword(e.target.value)}
-                  placeholder="At least 8 characters"
+                  placeholder={t('passwordHint')}
                   className={inputCls}
                 />
               </div>
               {initialRole === 'CONTRACTOR' && (
                 <div>
-                  <label className={labelCls}>State you work in</label>
+                  <label className={labelCls}>{t('stateYouWorkIn')}</label>
                   <select
                     required
                     value={regState}
                     onChange={(e) => setRegState(e.target.value)}
                     className={inputCls}
                   >
-                    <option value="">Select a state…</option>
+                    <option value="">{t('selectState')}</option>
                     {US_STATES.map((s) => (
                       <option key={s.code} value={s.code}>
                         {s.name}
@@ -210,33 +212,33 @@ export function AuthModal({ initialRole, onClose, onSuccess }: Props) {
                 disabled={loading}
                 className="w-full py-3 mt-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold rounded-lg transition-colors text-sm"
               >
-                {loading ? 'Creating account…' : 'Create account'}
+                {loading ? t('creatingAccount') : t('createAccount')}
               </button>
               <p className="text-xs text-center text-gray-400">
-                You can add the other role from your dashboard after signing up
+                {t('addRoleAfterSignup')}
               </p>
             </form>
           ) : (
             <form onSubmit={handleLogin} className="space-y-4">
               <div>
-                <label className={labelCls}>Email</label>
+                <label className={labelCls}>{t('email')}</label>
                 <input
                   type="email"
                   required
                   value={loginEmail}
                   onChange={(e) => setLoginEmail(e.target.value)}
-                  placeholder="jane@example.com"
+                  placeholder={t('emailPlaceholder')}
                   className={inputCls}
                 />
               </div>
               <div>
-                <label className={labelCls}>Password</label>
+                <label className={labelCls}>{t('password')}</label>
                 <input
                   type="password"
                   required
                   value={loginPassword}
                   onChange={(e) => setLoginPassword(e.target.value)}
-                  placeholder="Your password"
+                  placeholder={t('yourPassword')}
                   className={inputCls}
                 />
               </div>
@@ -245,7 +247,7 @@ export function AuthModal({ initialRole, onClose, onSuccess }: Props) {
                 disabled={loading}
                 className="w-full py-3 mt-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold rounded-lg transition-colors text-sm"
               >
-                {loading ? 'Signing in…' : 'Sign in'}
+                {loading ? t('signingIn') : t('signIn')}
               </button>
             </form>
           )}

@@ -3,6 +3,7 @@ import type { TradeCategory, JobSummary, FileUploadRecord } from '@tradelink/typ
 import { API_URL } from '../../lib/api'
 import { US_STATES } from '../../lib/states'
 import { FileUpload } from '../FileUpload'
+import { useT } from '../../lib/i18n'
 
 interface Props {
   onClose: () => void
@@ -39,6 +40,7 @@ function TypingIndicator() {
 }
 
 export function PostJobModal({ onClose, onCreated }: Props) {
+  const { t } = useT()
   const [step, setStep] = useState<Step>('category')
   const [categories, setCategories] = useState<TradeCategory[]>([])
 
@@ -256,16 +258,16 @@ export function PostJobModal({ onClose, onCreated }: Props) {
           <div className="flex items-center justify-between mb-3">
             <div>
               <h2 className="text-lg font-bold text-gray-900">
-                {step === 'category' && 'Post a Job'}
-                {step === 'chat' && (selectedCategory ? `${selectedCategory.icon} ${selectedCategory.name}` : 'AI Intake')}
-                {step === 'review' && 'Review Your Request'}
-                {step === 'manual' && (selectedCategory ? `${selectedCategory.icon} ${selectedCategory.name}` : 'Post a Job')}
+                {step === 'category' && t('postJobTitle')}
+                {step === 'chat' && (selectedCategory ? `${selectedCategory.icon} ${selectedCategory.name}` : t('aiIntake'))}
+                {step === 'review' && t('reviewRequest')}
+                {step === 'manual' && (selectedCategory ? `${selectedCategory.icon} ${selectedCategory.name}` : t('postJobTitle'))}
               </h2>
               {step === 'chat' && (
-                <p className="text-xs text-gray-400 mt-0.5">Describing your project to find the best contractors</p>
+                <p className="text-xs text-gray-400 mt-0.5">{t('describingProject')}</p>
               )}
               {step === 'manual' && (
-                <p className="text-xs text-gray-400 mt-0.5">Fill in the details manually</p>
+                <p className="text-xs text-gray-400 mt-0.5">{t('fillManually')}</p>
               )}
             </div>
             <div className="flex items-center gap-3">
@@ -274,7 +276,7 @@ export function PostJobModal({ onClose, onCreated }: Props) {
                   onClick={() => setStep('manual')}
                   className="text-xs text-gray-400 hover:text-gray-600 underline"
                 >
-                  Skip AI
+                  {t('skipAI')}
                 </button>
               )}
               {step === 'manual' && (
@@ -282,7 +284,7 @@ export function PostJobModal({ onClose, onCreated }: Props) {
                   onClick={() => setStep('chat')}
                   className="text-xs text-gray-400 hover:text-gray-600 underline"
                 >
-                  Back to AI
+                  {t('backToAI')}
                 </button>
               )}
             <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">
@@ -295,7 +297,7 @@ export function PostJobModal({ onClose, onCreated }: Props) {
           {(step === 'chat' || step === 'review') && (
             <div className="space-y-1">
               <div className="flex justify-between text-xs text-gray-400">
-                <span>Intake progress</span>
+                <span>{t('intakeProgress')}</span>
                 <span>{progress}%</span>
               </div>
               <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
@@ -311,7 +313,7 @@ export function PostJobModal({ onClose, onCreated }: Props) {
         {/* Step 1 — Category grid */}
         {step === 'category' && (
           <div className="p-6 overflow-y-auto">
-            <p className="text-sm text-gray-500 mb-4">What type of work do you need?</p>
+            <p className="text-sm text-gray-500 mb-4">{t('whatTypeOfWork')}</p>
             <div className="grid grid-cols-2 gap-2">
               {categories.map((cat) => (
                 <button
@@ -390,13 +392,13 @@ export function PostJobModal({ onClose, onCreated }: Props) {
               {isComplete && !waiting && (
                 <div className="mx-1 p-4 bg-blue-50 border border-blue-200 rounded-2xl text-center mt-2">
                   <p className="text-sm font-medium text-blue-800 mb-3">
-                    Ready to review your job summary!
+                    {t('readyToReview')}
                   </p>
                   <button
                     onClick={() => setStep('review')}
                     className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors"
                   >
-                    Review & Confirm →
+                    {t('reviewAndConfirm')}
                   </button>
                 </div>
               )}
@@ -447,7 +449,7 @@ export function PostJobModal({ onClose, onCreated }: Props) {
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder="Type your message…"
+                  placeholder={t('typeYourMessage')}
                   rows={1}
                   disabled={waiting}
                   className="flex-1 px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none disabled:opacity-50"
@@ -499,7 +501,7 @@ export function PostJobModal({ onClose, onCreated }: Props) {
               <p className="text-sm text-gray-600">{jobSummary.description}</p>
 
               <div>
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Scope of Work</p>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">{t('scopeOfWork')}</p>
                 <ul className="space-y-1">
                   {(jobSummary.scopeOfWork ?? []).map((item, i) => (
                     <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
@@ -512,20 +514,20 @@ export function PostJobModal({ onClose, onCreated }: Props) {
 
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div>
-                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Property</p>
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">{t('property')}</p>
                   <p className="text-gray-700">{jobSummary.propertyDetails.type}</p>
                   {jobSummary.propertyDetails.size && <p className="text-gray-500 text-xs">{jobSummary.propertyDetails.size}</p>}
                   {jobSummary.propertyDetails.floors && <p className="text-gray-500 text-xs">{jobSummary.propertyDetails.floors}</p>}
                 </div>
                 <div>
-                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Timeline</p>
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">{t('timeline')}</p>
                   <p className="text-gray-700">{jobSummary.timeline}</p>
                 </div>
               </div>
 
               {(jobSummary.specialRequirements ?? []).length > 0 && (
                 <div>
-                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Special Requirements</p>
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">{t('specialRequirements')}</p>
                   <ul className="space-y-0.5">
                     {jobSummary.specialRequirements.map((r, i) => (
                       <li key={i} className="text-sm text-gray-600">• {r}</li>
@@ -537,38 +539,38 @@ export function PostJobModal({ onClose, onCreated }: Props) {
 
             {/* Location form */}
             <div className="space-y-3">
-              <p className="text-sm font-semibold text-gray-800">Where is this job?</p>
+              <p className="text-sm font-semibold text-gray-800">{t('whereIsJob')}</p>
               <div>
-                <label className={labelCls}>Street address</label>
+                <label className={labelCls}>{t('streetAddress')}</label>
                 <input
                   type="text"
                   required
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
-                  placeholder="123 Main St"
+                  placeholder={t('streetAddressPlaceholder')}
                   className={inputCls}
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className={labelCls}>City</label>
+                  <label className={labelCls}>{t('cityLabel')}</label>
                   <input
                     type="text"
                     required
                     value={city}
                     onChange={(e) => setCity(e.target.value)}
-                    placeholder="Austin"
+                    placeholder={t('cityPlaceholder')}
                     className={inputCls}
                   />
                 </div>
                 <div>
-                  <label className={labelCls}>State</label>
+                  <label className={labelCls}>{t('stateLabel')}</label>
                   <select
                     value={state}
                     onChange={(e) => setState(e.target.value)}
                     className={inputCls}
                   >
-                    <option value="">Select…</option>
+                    <option value="">{t('selectStatePlaceholder')}</option>
                     {US_STATES.map((s) => (
                       <option key={s.code} value={s.code}>{s.name}</option>
                     ))}
@@ -583,14 +585,14 @@ export function PostJobModal({ onClose, onCreated }: Props) {
                 onClick={() => setStep('chat')}
                 className="flex-1 py-2.5 border border-gray-300 text-gray-700 text-sm font-medium rounded-xl hover:bg-gray-50 transition-colors"
               >
-                Keep chatting
+                {t('keepChatting')}
               </button>
               <button
                 onClick={handleConfirm}
                 disabled={confirming || !address || !city || !state}
                 className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white text-sm font-semibold rounded-xl transition-colors"
               >
-                {confirming ? 'Posting…' : 'Post Job'}
+                {confirming ? t('posting') : t('postJobBtn')}
               </button>
             </div>
           </div>
@@ -607,59 +609,59 @@ export function PostJobModal({ onClose, onCreated }: Props) {
                   </div>
                 )}
                 <div>
-                  <label className={labelCls}>Job title</label>
+                  <label className={labelCls}>{t('jobTitleLabel')}</label>
                   <input
                     type="text"
                     required
                     value={manualTitle}
                     onChange={(e) => setManualTitle(e.target.value)}
-                    placeholder="e.g. Replace ceiling light fixture"
+                    placeholder={t('jobTitlePlaceholder')}
                     className={inputCls}
                   />
                 </div>
                 <div>
-                  <label className={labelCls}>Description</label>
+                  <label className={labelCls}>{t('descriptionLabel')}</label>
                   <textarea
                     required
                     value={manualDescription}
                     onChange={(e) => setManualDescription(e.target.value)}
-                    placeholder="Describe what needs to be done…"
+                    placeholder={t('describeJob')}
                     rows={4}
                     className={inputCls + ' resize-none'}
                   />
                 </div>
                 <div>
-                  <label className={labelCls}>Street address</label>
+                  <label className={labelCls}>{t('streetAddress')}</label>
                   <input
                     type="text"
                     required
                     value={manualAddress}
                     onChange={(e) => setManualAddress(e.target.value)}
-                    placeholder="123 Main St"
+                    placeholder={t('streetAddressPlaceholder')}
                     className={inputCls}
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className={labelCls}>City</label>
+                    <label className={labelCls}>{t('cityLabel')}</label>
                     <input
                       type="text"
                       required
                       value={manualCity}
                       onChange={(e) => setManualCity(e.target.value)}
-                      placeholder="Austin"
+                      placeholder={t('cityPlaceholder')}
                       className={inputCls}
                     />
                   </div>
                   <div>
-                    <label className={labelCls}>State</label>
+                    <label className={labelCls}>{t('stateLabel')}</label>
                     <select
                       value={manualState}
                       onChange={(e) => setManualState(e.target.value)}
                       required
                       className={inputCls}
                     >
-                      <option value="">Select…</option>
+                      <option value="">{t('selectStatePlaceholder')}</option>
                       {US_STATES.map((s) => (
                         <option key={s.code} value={s.code}>{s.name}</option>
                       ))}
@@ -671,14 +673,14 @@ export function PostJobModal({ onClose, onCreated }: Props) {
                   disabled={manualSubmitting}
                   className="w-full py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white font-semibold rounded-xl transition-colors"
                 >
-                  {manualSubmitting ? 'Posting…' : 'Post Job'}
+                  {manualSubmitting ? t('posting') : t('postJobBtn')}
                 </button>
               </form>
             ) : (
               <div className="space-y-5">
                 <div className="text-center py-2">
-                  <p className="text-lg font-semibold text-gray-900">Job posted!</p>
-                  <p className="text-sm text-gray-500 mt-1">Add photos to help contractors understand the job</p>
+                  <p className="text-lg font-semibold text-gray-900">{t('jobPosted')}</p>
+                  <p className="text-sm text-gray-500 mt-1">{t('addPhotosHint')}</p>
                 </div>
                 <FileUpload
                   category="JOB_PHOTO"
@@ -688,13 +690,13 @@ export function PostJobModal({ onClose, onCreated }: Props) {
                   onRemoved={(id) => setManualFiles((prev) => prev.filter((f) => f.id !== id))}
                   maxFiles={20}
                   accept="image/*,application/pdf,video/mp4,video/quicktime"
-                  label="Add photos or documents"
+                  label={t('addPhotosOrDocs')}
                 />
                 <button
                   onClick={() => onCreated(manualJobId)}
                   className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors"
                 >
-                  View Job
+                  {t('viewJob')}
                 </button>
               </div>
             )}

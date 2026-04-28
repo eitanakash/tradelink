@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { API_URL } from '../../lib/api'
+import { useT } from '../../lib/i18n'
 
 interface QuoteWithJob {
   id: string
@@ -28,6 +29,7 @@ interface Props {
 }
 
 export function ContractorQuoteList({ onSelectJob }: Props) {
+  const { t } = useT()
   const [quotes, setQuotes] = useState<QuoteWithJob[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -46,22 +48,22 @@ export function ContractorQuoteList({ onSelectJob }: Props) {
       .finally(() => setLoading(false))
   }, [])
 
-  if (loading) return <div className="text-center py-20 text-gray-400">Loading…</div>
+  if (loading) return <div className="text-center py-20 text-gray-400">{t('loading')}</div>
   if (error) return <div className="text-center py-20 text-red-500">{error}</div>
 
   if (quotes.length === 0) {
     return (
       <div className="text-center py-20">
         <div className="text-5xl mb-4">📬</div>
-        <p className="text-gray-500">You haven't submitted any quotes yet.</p>
-        <p className="text-sm text-gray-400 mt-1">Browse open jobs to get started.</p>
+        <p className="text-gray-500">{t('noQuotesSubmitted')}</p>
+        <p className="text-sm text-gray-400 mt-1">{t('browseOpenJobsHint')}</p>
       </div>
     )
   }
 
   return (
     <div>
-      <h2 className="text-xl font-bold text-gray-900 mb-6">My Quotes</h2>
+      <h2 className="text-xl font-bold text-gray-900 mb-6">{t('myQuotes')}</h2>
       <div className="space-y-3">
         {quotes.map((quote) => (
           <button

@@ -1,14 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { Job } from '@tradelink/types'
 import { API_URL } from '../../lib/api'
-
-const STATUS_LABELS: Record<string, string> = {
-  OPEN: 'Open',
-  IN_REVIEW: 'In Review',
-  AWARDED: 'Awarded',
-  COMPLETED: 'Completed',
-  CANCELLED: 'Cancelled',
-}
+import { useT } from '../../lib/i18n'
 
 const STATUS_COLORS: Record<string, string> = {
   OPEN: 'bg-green-100 text-green-700',
@@ -24,6 +17,7 @@ interface Props {
 }
 
 export function ClientJobList({ onSelectJob, onPostJob }: Props) {
+  const { t } = useT()
   const [jobs, setJobs] = useState<Job[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -42,30 +36,38 @@ export function ClientJobList({ onSelectJob, onPostJob }: Props) {
       .finally(() => setLoading(false))
   }, [])
 
-  if (loading) return <div className="text-center py-20 text-gray-400">Loading…</div>
+  const STATUS_LABELS: Record<string, string> = {
+    OPEN: t('statusOpen'),
+    IN_REVIEW: t('statusInReview'),
+    AWARDED: t('statusAwarded'),
+    COMPLETED: t('statusCompleted'),
+    CANCELLED: t('statusCancelled'),
+  }
+
+  if (loading) return <div className="text-center py-20 text-gray-400">{t('loadingDots')}</div>
   if (error) return <div className="text-center py-20 text-red-500">{error}</div>
 
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-bold text-gray-900">Your Jobs</h2>
+        <h2 className="text-xl font-bold text-gray-900">{t('yourJobs')}</h2>
         <button
           onClick={onPostJob}
           className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors"
         >
-          + Post a Job
+          {t('postAJob')}
         </button>
       </div>
 
       {jobs.length === 0 ? (
         <div className="text-center py-20">
           <div className="text-5xl mb-4">📋</div>
-          <p className="text-gray-500 mb-6">No jobs yet. Post your first job to get started.</p>
+          <p className="text-gray-500 mb-6">{t('noJobsYet')}</p>
           <button
             onClick={onPostJob}
             className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors"
           >
-            Post a Job
+            {t('postAJobBtn')}
           </button>
         </div>
       ) : (

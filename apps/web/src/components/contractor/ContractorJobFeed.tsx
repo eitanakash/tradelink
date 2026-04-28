@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { Job, TradeCategory, ContractorProfileData } from '@tradelink/types'
 import { API_URL } from '../../lib/api'
+import { useT } from '../../lib/i18n'
 
 interface Props {
   onSelectJob: (id: string) => void

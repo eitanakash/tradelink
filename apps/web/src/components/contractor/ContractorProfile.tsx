@@ -2,8 +2,10 @@ import { useEffect, useState } from 'react'
 import type { ContractorProfileData, FileUploadRecord } from '@tradelink/types'
 import { API_URL } from '../../lib/api'
 import { FileUpload } from '../FileUpload'
+import { useT } from '../../lib/i18n'
 
 export function ContractorProfile() {
+  const { t } = useT()
   const [profile, setProfile] = useState<ContractorProfileData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -30,22 +32,22 @@ export function ContractorProfile() {
       .finally(() => setLoading(false))
   }, [])
 
-  if (loading) return <div className="text-center py-20 text-gray-400">Loading…</div>
+  if (loading) return <div className="text-center py-20 text-gray-400">{t('loading')}</div>
   if (error || !profile) return <div className="text-center py-20 text-red-500">{error}</div>
 
   return (
     <div className="space-y-8">
       <div>
-        <h2 className="text-xl font-bold text-gray-900 mb-1">Your Profile</h2>
+        <h2 className="text-xl font-bold text-gray-900 mb-1">{t('yourProfile')}</h2>
         <p className="text-sm text-gray-500">
-          {profile.state} · {profile.trades.map((t) => `${t.icon} ${t.name}`).join(' · ') || 'No trades selected'}
+          {profile.state} · {profile.trades.map((tr) => `${tr.icon} ${tr.name}`).join(' · ') || t('noTradesSelected')}
         </p>
       </div>
 
       {/* Portfolio photos */}
       <section>
-        <h3 className="font-semibold text-gray-900 mb-1">Portfolio</h3>
-        <p className="text-sm text-gray-500 mb-4">Photos of your previous work (up to 20)</p>
+        <h3 className="font-semibold text-gray-900 mb-1">{t('portfolioSectionTitle')}</h3>
+        <p className="text-sm text-gray-500 mb-4">{t('portfolioSectionHint')}</p>
         <FileUpload
           category="PROFILE_PHOTO"
           existingFiles={photos}
@@ -53,14 +55,14 @@ export function ContractorProfile() {
           onRemoved={(id) => setPhotos((prev) => prev.filter((f) => f.id !== id))}
           maxFiles={20}
           accept="image/*"
-          label="Add portfolio photos"
+          label={t('addPortfolioPhotos')}
         />
       </section>
 
       {/* Documents */}
       <section>
-        <h3 className="font-semibold text-gray-900 mb-1">Documents</h3>
-        <p className="text-sm text-gray-500 mb-4">License, certifications, insurance (up to 5 PDFs)</p>
+        <h3 className="font-semibold text-gray-900 mb-1">{t('documentsSectionTitle')}</h3>
+        <p className="text-sm text-gray-500 mb-4">{t('documentsSectionHint')}</p>
         <FileUpload
           category="PROFILE_DOCUMENT"
           existingFiles={docs}
@@ -68,7 +70,7 @@ export function ContractorProfile() {
           onRemoved={(id) => setDocs((prev) => prev.filter((f) => f.id !== id))}
           maxFiles={5}
           accept="application/pdf"
-          label="Add license or certification PDFs"
+          label={t('addDocumentsLabel')}
         />
       </section>
     </div>

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { Job, JobQuote, FileUploadRecord } from '@tradelink/types'
 import { API_URL } from '../../lib/api'
 import { FileUpload } from '../FileUpload'
+import { useT } from '../../lib/i18n'
 
 interface Props {
   jobId: string
@@ -9,6 +10,7 @@ interface Props {
 }
 
 export function ContractorJobDetail({ jobId, onBack }: Props) {
+  const { t } = useT()
   const [job, setJob] = useState<Job | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -114,7 +116,7 @@ export function ContractorJobDetail({ jobId, onBack }: Props) {
     }
   }
 
-  if (loading) return <div className="text-center py-20 text-gray-400">Loading…</div>
+  if (loading) return <div className="text-center py-20 text-gray-400">{t('loading')}</div>
   if (error || !job) return <div className="text-center py-20 text-red-500">{error || 'Job not found'}</div>
 
   const inputCls =
@@ -124,7 +126,7 @@ export function ContractorJobDetail({ jobId, onBack }: Props) {
   return (
     <div>
       <button onClick={onBack} className="text-sm text-violet-600 hover:underline mb-6 flex items-center gap-1">
-        ← Back to jobs
+        {t('backToJobs')}
       </button>
 
       <div className="bg-white border border-gray-200 rounded-2xl p-6 mb-6">
@@ -139,7 +141,7 @@ export function ContractorJobDetail({ jobId, onBack }: Props) {
 
         {(job.files ?? []).length > 0 && (
           <div className="mt-4 pt-4 border-t border-gray-100">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Job Photos</p>
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">{t('jobPhotos')}</p>
             <div className="grid grid-cols-4 gap-2">
               {job.files!.map((f: FileUploadRecord) =>
                 f.mimeType.startsWith('image/') ? (
@@ -171,7 +173,7 @@ export function ContractorJobDetail({ jobId, onBack }: Props) {
           }`}
         >
           <div className="flex items-center justify-between mb-3">
-            <h3 className="font-semibold text-gray-900">Your Quote</h3>
+            <h3 className="font-semibold text-gray-900">{t('yourQuote')}</h3>
             <span
               className={`text-xs font-medium px-2.5 py-1 rounded-full ${
                 myQuote.status === 'ACCEPTED'
@@ -191,7 +193,7 @@ export function ContractorJobDetail({ jobId, onBack }: Props) {
                 <p className="text-sm text-red-600">{saveError}</p>
               )}
               <div>
-                <label className={labelCls}>Price ($)</label>
+                <label className={labelCls}>{t('priceLabel')}</label>
                 <input
                   type="number"
                   required
@@ -202,7 +204,7 @@ export function ContractorJobDetail({ jobId, onBack }: Props) {
                 />
               </div>
               <div>
-                <label className={labelCls}>Notes</label>
+                <label className={labelCls}>{t('notesLabel')}</label>
                 <textarea
                   required
                   value={editNotes}
@@ -217,14 +219,14 @@ export function ContractorJobDetail({ jobId, onBack }: Props) {
                   onClick={() => setEditing(false)}
                   className="flex-1 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-white transition-colors"
                 >
-                  Cancel
+                  {t('cancel')}
                 </button>
                 <button
                   type="submit"
                   disabled={saving}
                   className="flex-1 py-2 bg-violet-600 hover:bg-violet-700 disabled:bg-violet-400 text-white text-sm font-semibold rounded-lg transition-colors"
                 >
-                  {saving ? 'Saving…' : 'Save'}
+                  {saving ? t('saving') : t('saveBtn')}
                 </button>
               </div>
             </form>
@@ -251,26 +253,26 @@ export function ContractorJobDetail({ jobId, onBack }: Props) {
 
               {myQuote.status === 'ACCEPTED' && (
                 <p className="text-sm font-medium text-green-700">
-                  Congratulations! The client accepted your quote.
+                  {t('congratsAccepted')}
                 </p>
               )}
 
               {myQuote.status === 'PENDING' && (
                 confirmWithdraw ? (
                   <div className="flex items-center gap-2 pt-1">
-                    <span className="text-sm text-gray-600 mr-1">Withdraw this quote?</span>
+                    <span className="text-sm text-gray-600 mr-1">{t('withdrawQuoteConfirm')}</span>
                     <button
                       onClick={handleWithdraw}
                       disabled={withdrawing}
                       className="px-3 py-1.5 bg-red-600 hover:bg-red-700 disabled:bg-red-300 text-white text-sm font-medium rounded-lg transition-colors"
                     >
-                      {withdrawing ? '…' : 'Yes, withdraw'}
+                      {withdrawing ? '…' : t('yesWithdraw')}
                     </button>
                     <button
                       onClick={() => setConfirmWithdraw(false)}
                       className="px-3 py-1.5 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-white transition-colors"
                     >
-                      Cancel
+                      {t('cancel')}
                     </button>
                   </div>
                 ) : (
@@ -279,13 +281,13 @@ export function ContractorJobDetail({ jobId, onBack }: Props) {
                       onClick={startEdit}
                       className="px-4 py-1.5 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors"
                     >
-                      Edit
+                      {t('editBtn')}
                     </button>
                     <button
                       onClick={() => setConfirmWithdraw(true)}
                       className="px-4 py-1.5 text-red-600 text-sm font-medium rounded-lg hover:bg-red-50 transition-colors"
                     >
-                      Withdraw
+                      {t('withdrawBtn')}
                     </button>
                   </div>
                 )
@@ -295,7 +297,7 @@ export function ContractorJobDetail({ jobId, onBack }: Props) {
         </div>
       ) : job.status === 'OPEN' ? (
         <div className="bg-white border border-gray-200 rounded-2xl p-6">
-          <h3 className="font-semibold text-gray-900 mb-4">Submit a Quote</h3>
+          <h3 className="font-semibold text-gray-900 mb-4">{t('submitAQuote')}</h3>
           {submitError && (
             <div className="mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
               {submitError}
@@ -303,24 +305,24 @@ export function ContractorJobDetail({ jobId, onBack }: Props) {
           )}
           <form onSubmit={handleSubmitQuote} className="space-y-4">
             <div>
-              <label className={labelCls}>Your price ($)</label>
+              <label className={labelCls}>{t('yourPrice')}</label>
               <input
                 type="number"
                 required
                 min="1"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                placeholder="e.g. 350"
+                placeholder={t('pricePlaceholder')}
                 className={inputCls}
               />
             </div>
             <div>
-              <label className={labelCls}>Notes</label>
+              <label className={labelCls}>{t('notesLabel')}</label>
               <textarea
                 required
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                placeholder="Describe your approach, timeline, materials included…"
+                placeholder={t('notesPlaceholder')}
                 rows={3}
                 className={inputCls + ' resize-none'}
               />
@@ -330,16 +332,16 @@ export function ContractorJobDetail({ jobId, onBack }: Props) {
               disabled={submitting}
               className="w-full py-3 bg-violet-600 hover:bg-violet-700 disabled:bg-violet-400 text-white font-semibold rounded-lg transition-colors"
             >
-              {submitting ? 'Submitting…' : 'Submit Quote'}
+              {submitting ? t('submitting') : t('submitQuote')}
             </button>
           </form>
 
           {newQuoteId && (
             <div className="mt-5 pt-5 border-t border-gray-200">
               <p className="text-sm font-medium text-gray-700 mb-3">
-                Add photos or documents to your quote
+                {t('addQuoteFilesHint')}
               </p>
-              <p className="text-xs text-gray-500 mb-3">Show previous work or attach your license</p>
+              <p className="text-xs text-gray-500 mb-3">{t('addQuoteFilesHint')}</p>
               <FileUpload
                 category="QUOTE_PHOTO"
                 quoteId={newQuoteId}
@@ -348,7 +350,7 @@ export function ContractorJobDetail({ jobId, onBack }: Props) {
                 onRemoved={(id) => setQuoteFiles((prev) => prev.filter((f) => f.id !== id))}
                 maxFiles={10}
                 accept="image/*,application/pdf"
-                label="Add photos of previous work or license PDF"
+                label={t('addQuoteFilesLabel')}
                 compact
               />
             </div>
@@ -356,7 +358,7 @@ export function ContractorJobDetail({ jobId, onBack }: Props) {
         </div>
       ) : (
         <p className="text-center text-sm text-gray-500 py-8">
-          This job is no longer accepting quotes.
+          {t('jobNotAcceptingQuotes')}
         </p>
       )}
     </div>
