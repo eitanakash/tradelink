@@ -10,6 +10,11 @@ import { ContractorJobFeed } from './contractor/ContractorJobFeed'
 import { ContractorJobDetail } from './contractor/ContractorJobDetail'
 import { ContractorQuoteList } from './contractor/ContractorQuoteList'
 import { ContractorProfile } from './contractor/ContractorProfile'
+import { Inbox } from './messages/Inbox'
+import { FindContractors } from './directory/FindContractors'
+import { ContractorPublicProfile } from './contractor/ContractorPublicProfile'
+import { AccountSettings } from './account/AccountSettings'
+
 import { wsClient } from '../services/websocket'
 import { NotificationBell } from './NotificationBell'
 import { Inbox } from './messages/Inbox'
@@ -25,7 +30,7 @@ interface Props {
   onLogout: () => void
 }
 
-type View = 'list' | 'detail'
+type View = 'list' | 'detail' | 'messages' | 'find-contractors' | 'settings'
 type ContractorTab = 'feed' | 'quotes' | 'profile'
 
 const LANGUAGES = [
@@ -203,6 +208,69 @@ export function Dashboard({ user, activeMode, onModeChange, onUserUpdate, onLogo
     }
   }
 
+  // Compute active page for nav highlighting
+  const activePage = (() => {
+    if (view === 'messages') return 'messages'
+    if (view === 'find-contractors') return 'find-contractors'
+    if (isClientMode) return 'my-jobs'
+    if (contractorTab === 'feed') return 'browse-jobs'
+    if (contractorTab === 'quotes') return 'my-quotes'
+    if (contractorTab === 'profile') return 'my-profile'
+    return ''
+  })()
+
+  const handleNavigate = (page: string) => {
+    switch (page) {
+      case 'my-jobs':
+        setView('list')
+        setSelectedJobId(null)
+        break
+      case 'post-job':
+        setShowPostJob(true)
+        break
+      case 'find-contractors':
+        setView('find-contractors')
+        setSelectedContractorSlug(null)
+        break
+      case 'messages':
+        setView('messages')
+        setMsgUnread(0)
+        break
+      case 'browse-jobs':
+        setContractorTab('feed')
+        setView('list')
+        setSelectedJobId(null)
+        break
+      case 'my-quotes':
+        setContractorTab('quotes')
+        setView('list')
+        setSelectedJobId(null)
+        break
+      case 'my-profile':
+        setContractorTab('profile')
+        setView('list')
+        setSelectedJobId(null)
+        break
+      case 'settings/account':
+        setView('settings')
+        break
+      case 'become-contractor':
+        if (missingRole === 'CONTRACTOR') setShowStatePrompt(true)
+        break
+      case 'become-client':
+        handleAddRole('CLIENT')
+        break
+    }
+  }
+
+  const handleModeChange = (mode: ActiveMode) => {
+    onModeChange(mode)
+    toast(
+      mode === 'CONTRACTOR' ? t('switchedToContractor') : t('switchedToClient'),
+      'info',
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Navbar */}
@@ -318,6 +386,43 @@ export function Dashboard({ user, activeMode, onModeChange, onUserUpdate, onLogo
 
       {/* Main content */}
       <main className="flex-1 max-w-3xl w-full mx-auto px-6 py-10">
+        {/* Messages view */}
+        {view === 'messages' && (
+          <div>
+            <div className="flex items-center gap-3 mb-6">
+              <button
+                onClick={() => setView('list')}
+                className="text-sm text-blue-600 hover:underline flex items-center gap-1"
+              >
+                {t('backBtn')}
+              </button>
+              <h1 className="text-xl font-bold text-gray-900">{t('messagesTitle')}</h1>
+            </div>
+            <Inbox
+              userId={user.id}
+              initialConversationId={selectedConversationId}
+            />
+          </div>
+        )}
+
+        {/* Account Settings view */}
+        {view === 'settings' && (
+          <div>
+            <button
+              onClick={() => setView('list')}
+              className="text-sm text-blue-600 hover:underline flex items-center gap-1 mb-6"
+            >
+              {t('backBtn')}
+            </button>
+            <AccountSettings
+              onUserUpdate={(patch) => onUserUpdate({ ...user, ...patch })}
+              onLogout={onLogout}
+            />
+          </div>
+        )}
+
+        {/* Find Contractors view */}
+        {view === 'find-contractors' && (
         {showMessages ? (
           <div>
             <button
@@ -355,7 +460,10 @@ export function Dashboard({ user, activeMode, onModeChange, onUserUpdate, onLogo
               />
             )}
           </>
-        ) : (
+        )}
+
+        {/* Job views */}
+        {view !== 'messages' && view !== 'find-contractors' && view !== 'settings' && (
           <>
             {view === 'list' && (
               <>

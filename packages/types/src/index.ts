@@ -2,10 +2,33 @@ export interface UserProfile {
   id: string
   email: string
   name: string
+  firstName: string | null
+  lastName: string | null
+  avatar: string | null
   hasClientProfile: boolean
   hasContractorProfile: boolean
   clientProfileId: string | null
   contractorProfileId: string | null
+}
+
+export interface AccountProfile {
+  id: string
+  email: string
+  name: string
+  firstName: string | null
+  lastName: string | null
+  phone: string | null
+  avatar: string | null
+  addressLine1: string | null
+  addressLine2: string | null
+  city: string | null
+  state: string | null
+  country: string | null
+  zipCode: string | null
+  createdAt: string
+  updatedAt: string
+  clientProfile: { id: string } | null
+  contractorProfile: { id: string } | null
 }
 
 export type ActiveMode = 'CLIENT' | 'CONTRACTOR'

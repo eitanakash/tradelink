@@ -14,6 +14,10 @@ import { aiRoutes } from './routes/ai'
 import { uploadRoutes } from './routes/uploads'
 import { conversationRoutes } from './routes/conversations'
 import { notificationRoutes } from './routes/notifications'
+import { accountRoutes } from './routes/account'
+
+import { conversationRoutes } from './routes/conversations'
+import { notificationRoutes } from './routes/notifications'
 import { adminRoutes } from './routes/admin'
 import { disputeRoutes } from './routes/disputes'
 
@@ -51,6 +55,9 @@ app.register(contractorRoutes)
 app.register(contractorsRoutes)
 app.register(aiRoutes)
 app.register(uploadRoutes)
+app.register(conversationRoutes)
+app.register(notificationRoutes)
+app.register(accountRoutes)
 app.register(conversationRoutes)
 app.register(notificationRoutes)
 app.register(adminRoutes)
