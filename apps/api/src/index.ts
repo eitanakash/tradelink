@@ -10,6 +10,12 @@ import { jobRoutes } from './routes/jobs'
 import { contractorRoutes } from './routes/contractor'
 import { aiRoutes } from './routes/ai'
 import { uploadRoutes } from './routes/uploads'
+<<<<<<< Updated upstream
+=======
+import { conversationRoutes } from './routes/conversations'
+import { notificationRoutes } from './routes/notifications'
+import { accountRoutes } from './routes/account'
+>>>>>>> Stashed changes
 
 const app = Fastify({ logger: true, bodyLimit: 4 * 1024 * 1024 })
 
@@ -42,6 +48,12 @@ app.register(jobRoutes)
 app.register(contractorRoutes)
 app.register(aiRoutes)
 app.register(uploadRoutes)
+<<<<<<< Updated upstream
+=======
+app.register(conversationRoutes)
+app.register(notificationRoutes)
+app.register(accountRoutes)
+>>>>>>> Stashed changes
 
 const start = async () => {
   try {
