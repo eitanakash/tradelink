@@ -14,6 +14,7 @@ import { aiRoutes } from './routes/ai'
 import { uploadRoutes } from './routes/uploads'
 import { conversationRoutes } from './routes/conversations'
 import { notificationRoutes } from './routes/notifications'
+import { accountRoutes } from './routes/account'
 
 const app = Fastify({ logger: true, bodyLimit: 4 * 1024 * 1024 })
 
@@ -51,6 +52,7 @@ app.register(aiRoutes)
 app.register(uploadRoutes)
 app.register(conversationRoutes)
 app.register(notificationRoutes)
+app.register(accountRoutes)
 
 const start = async () => {
   try {

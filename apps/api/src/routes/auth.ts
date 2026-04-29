@@ -35,6 +35,9 @@ const profileSelect = {
   id: true,
   email: true,
   name: true,
+  firstName: true,
+  lastName: true,
+  avatar: true,
   clientProfile: { select: { id: true } },
   contractorProfile: { select: { id: true } },
 } as const
@@ -43,6 +46,9 @@ function formatUser(user: {
   id: string
   email: string
   name: string
+  firstName: string | null
+  lastName: string | null
+  avatar: string | null
   clientProfile: { id: string } | null
   contractorProfile: { id: string } | null
 }) {
@@ -50,6 +56,9 @@ function formatUser(user: {
     id: user.id,
     email: user.email,
     name: user.name,
+    firstName: user.firstName,
+    lastName: user.lastName,
+    avatar: user.avatar,
     hasClientProfile: !!user.clientProfile,
     hasContractorProfile: !!user.contractorProfile,
     clientProfileId: user.clientProfile?.id ?? null,

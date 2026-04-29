@@ -16,6 +16,7 @@ import { ContractorProfile } from './contractor/ContractorProfile'
 import { Inbox } from './messages/Inbox'
 import { FindContractors } from './directory/FindContractors'
 import { ContractorPublicProfile } from './contractor/ContractorPublicProfile'
+import { AccountSettings } from './account/AccountSettings'
 
 interface Props {
   user: UserProfile
@@ -25,7 +26,7 @@ interface Props {
   onLogout: () => void
 }
 
-type View = 'list' | 'detail' | 'messages' | 'find-contractors'
+type View = 'list' | 'detail' | 'messages' | 'find-contractors' | 'settings'
 type ContractorTab = 'feed' | 'quotes' | 'profile'
 
 export function Dashboard({ user, activeMode, onModeChange, onUserUpdate, onLogout }: Props) {
@@ -47,7 +48,6 @@ export function Dashboard({ user, activeMode, onModeChange, onUserUpdate, onLogo
   const [notifUnread, setNotifUnread] = useState(0)
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null)
 
-  // Connect WebSocket on mount
   useEffect(() => {
     const token = localStorage.getItem('token')
     if (token) wsClient.connect(token)
@@ -83,13 +83,12 @@ export function Dashboard({ user, activeMode, onModeChange, onUserUpdate, onLogo
     setMsgUnread(0)
   }
 
-  const hasBoth = user.hasClientProfile && user.hasContractorProfile
   const isClientMode = activeMode === 'CLIENT'
   const missingRole: ActiveMode | null = !user.hasClientProfile
     ? 'CLIENT'
     : !user.hasContractorProfile
-    ? 'CONTRACTOR'
-    : null
+      ? 'CONTRACTOR'
+      : null
 
   const handleSelectJob = (id: string) => {
     setSelectedJobId(id)
@@ -130,10 +129,10 @@ export function Dashboard({ user, activeMode, onModeChange, onUserUpdate, onLogo
     }
   }
 
-  // Compute active page for nav highlighting
   const activePage = (() => {
     if (view === 'messages') return 'messages'
     if (view === 'find-contractors') return 'find-contractors'
+    if (view === 'settings') return 'settings'
     if (isClientMode) return 'my-jobs'
     if (contractorTab === 'feed') return 'browse-jobs'
     if (contractorTab === 'quotes') return 'my-quotes'
@@ -173,6 +172,9 @@ export function Dashboard({ user, activeMode, onModeChange, onUserUpdate, onLogo
         setView('list')
         setSelectedJobId(null)
         break
+      case 'settings/account':
+        setView('settings')
+        break
       case 'become-contractor':
         if (missingRole === 'CONTRACTOR') setShowStatePrompt(true)
         break
@@ -204,7 +206,6 @@ export function Dashboard({ user, activeMode, onModeChange, onUserUpdate, onLogo
         onLogout={onLogout}
       />
 
-      {/* Main content */}
       <main className="flex-1 max-w-3xl w-full mx-auto px-6 py-10">
         {/* Messages view */}
         {view === 'messages' && (
@@ -218,9 +219,22 @@ export function Dashboard({ user, activeMode, onModeChange, onUserUpdate, onLogo
               </button>
               <h1 className="text-xl font-bold text-gray-900">{t('messagesTitle')}</h1>
             </div>
-            <Inbox
-              userId={user.id}
-              initialConversationId={selectedConversationId}
+            <Inbox userId={user.id} initialConversationId={selectedConversationId} />
+          </div>
+        )}
+
+        {/* Account Settings view */}
+        {view === 'settings' && (
+          <div>
+            <button
+              onClick={() => setView('list')}
+              className="text-sm text-blue-600 hover:underline flex items-center gap-1 mb-6"
+            >
+              {t('backBtn')}
+            </button>
+            <AccountSettings
+              onUserUpdate={(patch) => onUserUpdate({ ...user, ...patch })}
+              onLogout={onLogout}
             />
           </div>
         )}
@@ -241,8 +255,8 @@ export function Dashboard({ user, activeMode, onModeChange, onUserUpdate, onLogo
           </>
         )}
 
-        {/* Job views */}
-        {view !== 'messages' && view !== 'find-contractors' && (
+        {/* Client and Contractor job views */}
+        {view !== 'messages' && view !== 'find-contractors' && view !== 'settings' && (
           <>
             {isClientMode ? (
               <>
@@ -325,9 +339,7 @@ export function Dashboard({ user, activeMode, onModeChange, onUserUpdate, onLogo
           <div className="bg-white border border-gray-200 rounded-2xl p-6">
             <h2 className="text-base font-semibold text-gray-900 mb-1">{t('expandAccount')}</h2>
             <p className="text-sm text-gray-500 mb-4">
-              {missingRole === 'CONTRACTOR'
-                ? t('becomeContractorPitch')
-                : t('becomeClientPitch')}
+              {missingRole === 'CONTRACTOR' ? t('becomeContractorPitch') : t('becomeClientPitch')}
             </p>
             {roleError && <p className="text-sm text-red-600 mb-3">{roleError}</p>}
 
@@ -381,15 +393,14 @@ export function Dashboard({ user, activeMode, onModeChange, onUserUpdate, onLogo
                 {addingRole
                   ? t('settingUp')
                   : missingRole === 'CONTRACTOR'
-                  ? t('alsoJoinAsContractor')
-                  : t('alsoJoinAsClient')}
+                    ? t('alsoJoinAsContractor')
+                    : t('alsoJoinAsClient')}
               </button>
             )}
           </div>
         </div>
       )}
 
-      {/* Post Job modal */}
       {showPostJob && (
         <PostJobModal
           onClose={() => setShowPostJob(false)}

@@ -62,8 +62,11 @@ export function AvatarDropdown({ user, activeMode, onModeChange, onNavigate, onL
       ref={ref}
       className="absolute right-0 top-full mt-2 w-60 bg-white border border-gray-200 rounded-2xl shadow-xl z-50 overflow-hidden"
     >
-      {/* User info */}
-      <div className="px-4 py-3 border-b border-gray-100">
+      {/* User info — clicks through to account settings */}
+      <button
+        onClick={() => nav('settings/account')}
+        className="w-full px-4 py-3 border-b border-gray-100 hover:bg-gray-50 transition-colors text-left"
+      >
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-sm shrink-0">
             {initial}
@@ -80,7 +83,7 @@ export function AvatarDropdown({ user, activeMode, onModeChange, onNavigate, onL
             </span>
           </div>
         </div>
-      </div>
+      </button>
 
       {/* Mode nav links */}
       <div className="border-b border-gray-100 py-1">
@@ -111,12 +114,14 @@ export function AvatarDropdown({ user, activeMode, onModeChange, onNavigate, onL
         )}
       </div>
 
-      {/* My Profile */}
-      <div className="border-b border-gray-100 py-1">
-        <button onClick={() => nav('my-profile')} className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
-          {t('myProfileMenu')}
-        </button>
-      </div>
+      {/* My Profile — contractor only */}
+      {!isClient && (
+        <div className="border-b border-gray-100 py-1">
+          <button onClick={() => nav('my-profile')} className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+            {t('myProfileMenu')}
+          </button>
+        </div>
+      )}
 
       {/* Mode switch */}
       <div className="border-b border-gray-100 py-1">
