@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { API_URL } from '../../lib/api'
 import { useT } from '../../lib/i18n'
 
@@ -35,7 +36,7 @@ interface Props {
 }
 
 export function ContractorQuoteList({ onSelectJob }: Props) {
-  const { t } = useT()
+  const { t } = useTranslation()
   const [quotes, setQuotes] = useState<QuoteWithJob[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -48,28 +49,28 @@ export function ContractorQuoteList({ onSelectJob }: Props) {
       .then((r) => r.json())
       .then((data) => {
         if (Array.isArray(data)) setQuotes(data)
-        else setError(data.error ?? 'Failed to load quotes')
+        else setError(data.error ?? t('quoteList.failedLoad'))
       })
-      .catch(() => setError('Network error'))
+      .catch(() => setError(t('common.networkError')))
       .finally(() => setLoading(false))
   }, [])
 
-  if (loading) return <div className="text-center py-20 text-gray-400">{t('loading')}</div>
+  if (loading) return <div className="text-center py-20 text-gray-400">{t('common.loading')}</div>
   if (error) return <div className="text-center py-20 text-red-500">{error}</div>
 
   if (quotes.length === 0) {
     return (
       <div className="text-center py-20">
         <div className="text-5xl mb-4">📬</div>
-        <p className="text-gray-500">{t('noQuotesSubmitted')}</p>
-        <p className="text-sm text-gray-400 mt-1">{t('browseOpenJobsHint')}</p>
+        <p className="text-gray-500">{t('quoteList.noQuotes')}</p>
+        <p className="text-sm text-gray-400 mt-1">{t('quoteList.browseJobs')}</p>
       </div>
     )
   }
 
   return (
     <div>
-      <h2 className="text-xl font-bold text-gray-900 mb-6">{t('myQuotes')}</h2>
+      <h2 className="text-xl font-bold text-gray-900 mb-6">{t('quoteList.myQuotes')}</h2>
       <div className="space-y-3">
         {quotes.map((quote) => {
           const prices = quote.tiers.map((t) => t.price)
@@ -103,7 +104,7 @@ export function ContractorQuoteList({ onSelectJob }: Props) {
                 <div className="flex flex-col items-end gap-2 shrink-0">
                   <span className="text-base font-semibold text-gray-900">{priceLabel}</span>
                   <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${STATUS_STYLES[quote.status]}`}>
-                    {quote.status}
+                    {t(`status.${quote.status}`, { defaultValue: quote.status })}
                   </span>
                 </div>
               </div>

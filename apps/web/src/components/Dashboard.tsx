@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { UserProfile, ActiveMode } from '@tradelink/types'
+import { useTranslation } from 'react-i18next'
 import { API_URL } from '../lib/api'
 import { useT } from '../lib/i18n'
 import { US_STATES } from '../lib/states'
@@ -18,6 +19,13 @@ import { FindContractors } from './directory/FindContractors'
 import { ContractorPublicProfile } from './contractor/ContractorPublicProfile'
 import { AccountSettings } from './account/AccountSettings'
 
+import { wsClient } from '../services/websocket'
+import { NotificationBell } from './NotificationBell'
+import { Inbox } from './messages/Inbox'
+import { useToast } from './Toast'
+import { FindContractors } from './directory/FindContractors'
+import { ContractorPublicProfilePage } from './contractor/ContractorPublicProfile'
+
 interface Props {
   user: UserProfile
   activeMode: ActiveMode
@@ -29,9 +37,31 @@ interface Props {
 type View = 'list' | 'detail' | 'messages' | 'find-contractors' | 'settings'
 type ContractorTab = 'feed' | 'quotes' | 'profile'
 
+const LANGUAGES = [
+  { code: 'en', label: 'English', flag: '🇺🇸' },
+  { code: 'es', label: 'Español', flag: '🇪🇸' },
+]
+
 export function Dashboard({ user, activeMode, onModeChange, onUserUpdate, onLogout }: Props) {
-  const { toast } = useToast()
-  const { t } = useT()
+  const { t, i18n } = useTranslation()
+  const [showLangMenu, setShowLangMenu] = useState(false)
+  const langMenuRef = useRef<HTMLDivElement>(null)
+
+  const changeLang = (code: string) => {
+    i18n.changeLanguage(code)
+    localStorage.setItem('lang', code)
+    setShowLangMenu(false)
+  }
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (langMenuRef.current && !langMenuRef.current.contains(e.target as Node)) {
+        setShowLangMenu(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
 
   const [view, setView] = useState<View>('list')
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null)
@@ -45,8 +75,56 @@ export function Dashboard({ user, activeMode, onModeChange, onUserUpdate, onLogo
 
   const [selectedContractorSlug, setSelectedContractorSlug] = useState<string | null>(null)
   const [msgUnread, setMsgUnread] = useState(0)
-  const [notifUnread, setNotifUnread] = useState(0)
-  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null)
+  const [showDirectory, setShowDirectory] = useState(false)
+  const [selectedContractorSlug, setSelectedContractorSlug] = useState<string | null>(null)
+
+  useEffect(() => {
+    setView('list')
+    setSelectedJobId(null)
+    setContractorTab('feed')
+    setShowDirectory(false)
+    setSelectedContractorSlug(null)
+    history.replaceState({ view: 'list', mode: activeMode }, '')
+  }, [activeMode])
+
+  // Set initial history state on mount
+  useEffect(() => {
+    history.replaceState({ view: 'list', mode: activeMode }, '')
+  }, [])
+
+  // Restore state on browser back/forward
+  useEffect(() => {
+    const onPop = (e: PopStateEvent) => {
+      const s = e.state
+      if (!s) return
+      if (s.view === 'messages') {
+        setShowMessages(true)
+        setShowDirectory(false)
+        setSelectedConversationId(s.conversationId ?? null)
+        setView('list')
+        setSelectedJobId(null)
+      } else if (s.view === 'directory') {
+        setShowDirectory(true)
+        setShowMessages(false)
+        setSelectedContractorSlug(s.contractorSlug ?? null)
+        setView('list')
+        setSelectedJobId(null)
+      } else if (s.view === 'detail') {
+        setShowDirectory(false)
+        setShowMessages(false)
+        setView('detail')
+        setSelectedJobId(s.jobId ?? null)
+      } else {
+        setShowDirectory(false)
+        setShowMessages(false)
+        setView('list')
+        setSelectedJobId(null)
+        if (s.contractorTab) setContractorTab(s.contractorTab)
+      }
+    }
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [])
 
   useEffect(() => {
     const token = localStorage.getItem('token')
@@ -55,11 +133,8 @@ export function Dashboard({ user, activeMode, onModeChange, onUserUpdate, onLogo
     const unsubMsg = wsClient.on('NEW_MESSAGE', () => {
       setMsgUnread((n) => n + 1)
     })
-    const unsubQuote = wsClient.on('QUOTE_SUBMITTED', () => {
-      toast(t('quoteSubmittedToast'), 'info')
-    })
-    const unsubNotif = wsClient.on('NEW_NOTIFICATION', () => {
-      setNotifUnread((n) => n + 1)
+    const offQuote = wsClient.on('QUOTE_SUBMITTED', () => {
+      toast(t('dashboard.newQuoteArrived'), 'info')
     })
 
     return () => {
@@ -79,8 +154,17 @@ export function Dashboard({ user, activeMode, onModeChange, onUserUpdate, onLogo
 
   const handleOpenMessages = (conversationId?: string) => {
     setSelectedConversationId(conversationId ?? null)
-    setView('messages')
+    setShowMessages(true)
+    setShowDirectory(false)
     setMsgUnread(0)
+    history.pushState({ view: 'messages', conversationId: conversationId ?? null, mode: activeMode }, '')
+  }
+
+  const handleSelectContractor = (slug: string) => {
+    setSelectedContractorSlug(slug)
+    setShowDirectory(true)
+    setShowMessages(false)
+    history.pushState({ view: 'directory', contractorSlug: slug, mode: activeMode }, '')
   }
 
   const isClientMode = activeMode === 'CLIENT'
@@ -93,11 +177,15 @@ export function Dashboard({ user, activeMode, onModeChange, onUserUpdate, onLogo
   const handleSelectJob = (id: string) => {
     setSelectedJobId(id)
     setView('detail')
+    setShowDirectory(false)
+    setShowMessages(false)
+    history.pushState({ view: 'detail', jobId: id, mode: activeMode }, '')
   }
 
   const handleBack = () => {
     setView('list')
     setSelectedJobId(null)
+    history.back()
   }
 
   const handleAddRole = async (role: ActiveMode, state?: string) => {
@@ -115,7 +203,7 @@ export function Dashboard({ user, activeMode, onModeChange, onUserUpdate, onLogo
       })
       const data = await res.json()
       if (!res.ok) {
-        setRoleError(data.error ?? 'Failed to add role')
+        setRoleError(data.error ?? t('dashboard.failedAddRole'))
         return
       }
       onUserUpdate(data)
@@ -123,16 +211,16 @@ export function Dashboard({ user, activeMode, onModeChange, onUserUpdate, onLogo
       setShowStatePrompt(false)
       setContractorState('')
     } catch {
-      setRoleError('Network error. Please try again.')
+      setRoleError(t('common.networkError'))
     } finally {
       setAddingRole(false)
     }
   }
 
+  // Compute active page for nav highlighting
   const activePage = (() => {
     if (view === 'messages') return 'messages'
     if (view === 'find-contractors') return 'find-contractors'
-    if (view === 'settings') return 'settings'
     if (isClientMode) return 'my-jobs'
     if (contractorTab === 'feed') return 'browse-jobs'
     if (contractorTab === 'quotes') return 'my-quotes'
@@ -194,17 +282,116 @@ export function Dashboard({ user, activeMode, onModeChange, onUserUpdate, onLogo
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
-      <Navbar
-        user={user}
-        activeMode={activeMode}
-        activePage={activePage}
-        msgUnread={msgUnread}
-        notifUnread={notifUnread}
-        onNotifRead={() => setNotifUnread(0)}
-        onModeChange={handleModeChange}
-        onNavigate={handleNavigate}
-        onLogout={onLogout}
-      />
+      {/* Navbar */}
+      <nav className="bg-white border-b border-gray-200">
+        <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
+          <button
+            onClick={() => {
+              setView('list')
+              setSelectedJobId(null)
+              setShowDirectory(false)
+              setShowMessages(false)
+              setSelectedContractorSlug(null)
+              history.pushState({ view: 'list', mode: activeMode }, '')
+            }}
+            className="text-xl font-bold text-gray-900 hover:text-blue-600 transition-colors"
+          >
+            Tradelink
+          </button>
+          <div className="flex items-center gap-3">
+            {hasBoth && (
+              <div className="flex items-center bg-gray-100 rounded-lg p-1">
+                <button
+                  onClick={() => onModeChange('CLIENT')}
+                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+                    activeMode === 'CLIENT'
+                      ? 'bg-white text-blue-700 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  {t('nav.clientMode')}
+                </button>
+                <button
+                  onClick={() => onModeChange('CONTRACTOR')}
+                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+                    activeMode === 'CONTRACTOR'
+                      ? 'bg-white text-violet-700 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  {t('nav.contractorMode')}
+                </button>
+              </div>
+            )}
+            {/* Find Contractors (client mode only) */}
+            {isClientMode && (
+              <button
+                onClick={() => {
+                  setShowDirectory(true)
+                  setSelectedContractorSlug(null)
+                  setShowMessages(false)
+                  history.pushState({ view: 'directory', contractorSlug: null, mode: activeMode }, '')
+                }}
+                className={`text-sm font-medium px-3 py-1.5 rounded-lg transition-colors ${showDirectory ? 'bg-blue-100 text-blue-700' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'}`}
+              >
+                {t('nav.findContractors')}
+              </button>
+            )}
+            {/* Messages button */}
+            <button
+              onClick={() => handleOpenMessages()}
+              className="relative p-2 rounded-lg hover:bg-gray-100 transition-colors"
+            >
+              <span className="text-xl">💬</span>
+              {msgUnread > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-blue-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1">
+                  {msgUnread > 99 ? '99+' : msgUnread}
+                </span>
+              )}
+            </button>
+            <NotificationBell />
+            <span className="text-sm text-gray-400 hidden sm:block">{user.email}</span>
+            <div ref={langMenuRef} className="relative">
+              <button
+                onClick={() => setShowLangMenu(v => !v)}
+                className="p-2 rounded-lg hover:bg-gray-100 transition-colors text-gray-500 hover:text-gray-700"
+                title="Language"
+                aria-label="Choose language"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
+                    d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18ZM3.6 9h16.8M3.6 15h16.8M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18" />
+                </svg>
+              </button>
+              {showLangMenu && (
+                <div className="absolute right-0 mt-2 w-36 bg-white border border-gray-200 rounded-xl shadow-lg z-50 py-1 overflow-hidden">
+                  {LANGUAGES.map(({ code, label, flag }) => (
+                    <button
+                      key={code}
+                      onClick={() => changeLang(code)}
+                      className={`w-full text-left flex items-center gap-2.5 px-3 py-2 text-sm transition-colors ${
+                        i18n.language === code
+                          ? 'bg-blue-50 text-blue-700 font-semibold'
+                          : 'text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      <span className="text-base">{flag}</span>
+                      {label}
+                      {i18n.language === code && <span className="ml-auto text-blue-500 text-xs">✓</span>}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <button
+              onClick={() => { wsClient.disconnect(); onLogout() }}
+              className="text-sm font-medium text-gray-500 hover:text-red-600 transition-colors"
+            >
+              {t('nav.logout')}
+            </button>
+          </div>
+        </div>
+      </nav>
 
       <main className="flex-1 max-w-3xl w-full mx-auto px-6 py-10">
         {/* Messages view */}
@@ -219,7 +406,10 @@ export function Dashboard({ user, activeMode, onModeChange, onUserUpdate, onLogo
               </button>
               <h1 className="text-xl font-bold text-gray-900">{t('messagesTitle')}</h1>
             </div>
-            <Inbox userId={user.id} initialConversationId={selectedConversationId} />
+            <Inbox
+              userId={user.id}
+              initialConversationId={selectedConversationId}
+            />
           </div>
         )}
 
@@ -241,30 +431,87 @@ export function Dashboard({ user, activeMode, onModeChange, onUserUpdate, onLogo
 
         {/* Find Contractors view */}
         {view === 'find-contractors' && (
+        {showMessages ? (
+          <div>
+            <button
+              onClick={() => { setShowMessages(false); history.back() }}
+              className="text-sm text-blue-600 hover:underline mb-4 flex items-center gap-1"
+            >
+              {t('dashboard.back')}
+            </button>
+            <AccountSettings
+              onUserUpdate={(patch) => onUserUpdate({ ...user, ...patch })}
+              onLogout={onLogout}
+            />
+          </div>
+        ) : showDirectory && isClientMode ? (
+          selectedContractorSlug ? (
+            <ContractorPublicProfilePage
+              slug={selectedContractorSlug}
+              onBack={() => { setSelectedContractorSlug(null); history.back() }}
+            />
+          ) : (
+            <FindContractors onSelectContractor={handleSelectContractor} />
+          )
+        ) : isClientMode ? (
           <>
             {selectedContractorSlug ? (
               <ContractorPublicProfile
                 slugOrId={selectedContractorSlug}
                 onBack={() => setSelectedContractorSlug(null)}
               />
-            ) : (
-              <FindContractors
-                onSelectContractor={(slugOrId) => setSelectedContractorSlug(slugOrId)}
+            )}
+            {view === 'detail' && selectedJobId && (
+              <ClientJobDetail
+                jobId={selectedJobId}
+                onBack={handleBack}
+                onDeleted={handleBack}
+                onOpenConversation={handleOpenMessages}
+                onSelectContractor={handleSelectContractor}
               />
             )}
           </>
         )}
 
-        {/* Client and Contractor job views */}
+        {/* Job views */}
         {view !== 'messages' && view !== 'find-contractors' && view !== 'settings' && (
           <>
             {isClientMode ? (
               <>
-                {view === 'list' && (
-                  <ClientJobList
-                    onSelectJob={handleSelectJob}
-                    onPostJob={() => setShowPostJob(true)}
-                  />
+                <div className="flex border-b border-gray-200 mb-6">
+                  <button
+                    onClick={() => setContractorTab('feed')}
+                    className={`px-4 pb-3 text-sm font-medium transition-colors ${
+                      contractorTab === 'feed'
+                        ? 'border-b-2 border-violet-500 text-violet-700'
+                        : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    {t('dashboard.browseJobs')}
+                  </button>
+                  <button
+                    onClick={() => setContractorTab('quotes')}
+                    className={`px-4 pb-3 text-sm font-medium transition-colors ${
+                      contractorTab === 'quotes'
+                        ? 'border-b-2 border-violet-500 text-violet-700'
+                        : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    {t('dashboard.myQuotes')}
+                  </button>
+                  <button
+                    onClick={() => setContractorTab('profile')}
+                    className={`px-4 pb-3 text-sm font-medium transition-colors ${
+                      contractorTab === 'profile'
+                        ? 'border-b-2 border-violet-500 text-violet-700'
+                        : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    {t('dashboard.profile')}
+                  </button>
+                </div>
+                {contractorTab === 'feed' && (
+                  <ContractorJobFeed onSelectJob={handleSelectJob} />
                 )}
                 {view === 'detail' && selectedJobId && (
                   <ClientJobDetail
@@ -337,9 +584,11 @@ export function Dashboard({ user, activeMode, onModeChange, onUserUpdate, onLogo
       {missingRole && (
         <div className="max-w-3xl w-full mx-auto px-6 pb-10">
           <div className="bg-white border border-gray-200 rounded-2xl p-6">
-            <h2 className="text-base font-semibold text-gray-900 mb-1">{t('expandAccount')}</h2>
+            <h2 className="text-base font-semibold text-gray-900 mb-1">{t('dashboard.expandAccount')}</h2>
             <p className="text-sm text-gray-500 mb-4">
-              {missingRole === 'CONTRACTOR' ? t('becomeContractorPitch') : t('becomeClientPitch')}
+              {missingRole === 'CONTRACTOR'
+                ? t('dashboard.expandContractorText')
+                : t('dashboard.expandClientText')}
             </p>
             {roleError && <p className="text-sm text-red-600 mb-3">{roleError}</p>}
 
@@ -347,14 +596,14 @@ export function Dashboard({ user, activeMode, onModeChange, onUserUpdate, onLogo
               <div className="space-y-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    {t('stateYouWorkIn')}
+                    {t('dashboard.stateWorkIn')}
                   </label>
                   <select
                     value={contractorState}
                     onChange={(e) => setContractorState(e.target.value)}
                     className="w-full px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    <option value="">{t('selectState')}</option>
+                    <option value="">{t('dashboard.selectState')}</option>
                     {US_STATES.map((s) => (
                       <option key={s.code} value={s.code}>
                         {s.name}
@@ -374,7 +623,7 @@ export function Dashboard({ user, activeMode, onModeChange, onUserUpdate, onLogo
                     disabled={addingRole || !contractorState}
                     className="px-5 py-2 bg-gray-900 hover:bg-gray-700 disabled:bg-gray-400 text-white text-sm font-semibold rounded-lg transition-colors"
                   >
-                    {addingRole ? t('settingUp') : t('joinAsContractor')}
+                    {addingRole ? t('dashboard.settingUp') : t('dashboard.joinAsContractor')}
                   </button>
                 </div>
               </div>
@@ -391,10 +640,10 @@ export function Dashboard({ user, activeMode, onModeChange, onUserUpdate, onLogo
                 className="px-5 py-2.5 bg-gray-900 hover:bg-gray-700 disabled:bg-gray-400 text-white text-sm font-semibold rounded-lg transition-colors"
               >
                 {addingRole
-                  ? t('settingUp')
+                  ? t('dashboard.settingUp')
                   : missingRole === 'CONTRACTOR'
-                    ? t('alsoJoinAsContractor')
-                    : t('alsoJoinAsClient')}
+                  ? t('dashboard.joinAsContractor')
+                  : t('dashboard.joinAsClient')}
               </button>
             )}
           </div>

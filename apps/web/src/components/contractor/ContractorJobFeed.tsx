@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { Job, TradeCategory, ContractorProfileData } from '@tradelink/types'
 import { API_URL } from '../../lib/api'
 import { useT } from '../../lib/i18n'
@@ -9,7 +10,7 @@ interface Props {
 }
 
 export function ContractorJobFeed({ onSelectJob }: Props) {
-  const { t } = useT()
+  const { t } = useTranslation()
   const [jobs, setJobs] = useState<Job[]>([])
   const [profile, setProfile] = useState<ContractorProfileData | null>(null)
   const [allCategories, setAllCategories] = useState<TradeCategory[]>([])
@@ -18,6 +19,7 @@ export function ContractorJobFeed({ onSelectJob }: Props) {
   const [savingTrades, setSavingTrades] = useState(false)
   const [selectedTradeIds, setSelectedTradeIds] = useState<string[]>([])
   const [showTradeEditor, setShowTradeEditor] = useState(false)
+  const [tradeSearch, setTradeSearch] = useState('')
 
   const token = localStorage.getItem('token')
 
@@ -36,7 +38,7 @@ export function ContractorJobFeed({ onSelectJob }: Props) {
         }
         if (Array.isArray(catsData)) setAllCategories(catsData)
       })
-      .catch(() => setError('Network error'))
+      .catch(() => setError(t('common.networkError')))
       .finally(() => setLoading(false))
   }
 
@@ -66,7 +68,7 @@ export function ContractorJobFeed({ onSelectJob }: Props) {
     }
   }
 
-  if (loading) return <div className="text-center py-20 text-gray-400">{t('loading')}</div>
+  if (loading) return <div className="text-center py-20 text-gray-400">{t('common.loading')}</div>
   if (error) return <div className="text-center py-20 text-red-500">{error}</div>
 
   const hasNoTrades = (profile?.trades.length ?? 0) === 0
@@ -77,10 +79,10 @@ export function ContractorJobFeed({ onSelectJob }: Props) {
       <div className="bg-white border border-gray-200 rounded-2xl p-5 mb-6">
         <div className="flex items-center justify-between mb-3">
           <div>
-            <h3 className="font-semibold text-gray-900">{t('yourTrades')}</h3>
+            <h3 className="font-semibold text-gray-900">{t('contractorFeed.yourTrades')}</h3>
             <p className="text-sm text-gray-500">
               {hasNoTrades
-                ? t('selectTradesPrompt')
+                ? t('contractorFeed.selectTrades')
                 : profile!.trades.map((tr) => `${tr.icon} ${tr.name}`).join(' · ')}
             </p>
           </div>
@@ -88,14 +90,24 @@ export function ContractorJobFeed({ onSelectJob }: Props) {
             onClick={() => setShowTradeEditor(!showTradeEditor)}
             className="text-sm font-medium text-blue-600 hover:underline"
           >
-            {showTradeEditor ? t('cancel') : t('editBtn')}
+            {showTradeEditor ? t('contractorFeed.cancelTrades') : t('contractorFeed.editTrades')}
           </button>
         </div>
 
         {showTradeEditor && (
           <div>
+            <input
+              type="text"
+              value={tradeSearch}
+              onChange={(e) => setTradeSearch(e.target.value)}
+              placeholder="Search trades…"
+              className="w-full px-3 py-2 mb-3 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-400"
+            />
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-4">
-              {allCategories.map((cat) => (
+              {allCategories.filter((cat) =>
+                tradeSearch.trim() === '' ||
+                cat.name.toLowerCase().includes(tradeSearch.toLowerCase())
+              ).map((cat) => (
                 <button
                   key={cat.id}
                   onClick={() => toggleTrade(cat.id)}
@@ -115,7 +127,7 @@ export function ContractorJobFeed({ onSelectJob }: Props) {
               disabled={savingTrades}
               className="w-full py-2.5 bg-violet-600 hover:bg-violet-700 disabled:bg-violet-300 text-white text-sm font-semibold rounded-lg transition-colors"
             >
-              {savingTrades ? t('savingTrades') : t('saveTrades')}
+              {savingTrades ? t('contractorFeed.savingTrades') : t('contractorFeed.saveTrades')}
             </button>
           </div>
         )}
@@ -123,22 +135,22 @@ export function ContractorJobFeed({ onSelectJob }: Props) {
 
       {/* Job feed */}
       <h2 className="text-xl font-bold text-gray-900 mb-4">
-        {t('openJobsIn')} {profile?.state ?? t('yourArea')}
+        {t('contractorFeed.openJobs', { area: profile?.state ?? t('contractorFeed.yourArea') })}
       </h2>
 
       {hasNoTrades && (
         <div className="text-center py-12 bg-violet-50 rounded-2xl border border-violet-100">
           <div className="text-4xl mb-3">🔧</div>
-          <p className="text-gray-600 font-medium mb-1">{t('selectTradesToSeeJobs')}</p>
+          <p className="text-gray-600 font-medium mb-1">{t('contractorFeed.selectTradesToSeeJobs')}</p>
           <p className="text-sm text-gray-500">
-            {t('useTradeEditorHint')}
+            {t('contractorFeed.useTradePicker')}
           </p>
         </div>
       )}
 
       {!hasNoTrades && jobs.length === 0 && (
         <div className="text-center py-12 text-gray-500">
-          {t('noOpenJobsNearby')}
+          {t('contractorFeed.noJobsArea')}
         </div>
       )}
 
@@ -163,7 +175,7 @@ export function ContractorJobFeed({ onSelectJob }: Props) {
               </div>
               <div className="shrink-0 text-right">
                 <span className="text-xs bg-green-100 text-green-700 font-medium px-2.5 py-1 rounded-full">
-                  Open
+                  {t('status.OPEN')}
                 </span>
                 {(job._count?.quotes ?? 0) > 0 && (
                   <p className="text-xs text-gray-400 mt-1">

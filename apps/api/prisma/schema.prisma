@@ -23,8 +23,10 @@ model User {
   country           String?            @default("US")
   zipCode           String?
   createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
-  deletedAt         DateTime?
+  isAdmin           Boolean            @default(false)
+  isSuspended       Boolean            @default(false)
+  suspendedAt       DateTime?
+  suspendedReason   String?
   clientProfile     ClientProfile?
   contractorProfile ContractorProfile?
   reviews           Review[]           @relation("ReviewAuthor")
@@ -93,6 +95,7 @@ model Job {
   clientMarkedComplete     Boolean        @default(false)
   contractorMarkedComplete Boolean        @default(false)
   review                   Review?
+  disputes                 Dispute[]
 }
 
 enum JobStatus {
@@ -252,4 +255,42 @@ model Review {
   contractorRepliedAt DateTime?
   isVerified          Boolean           @default(true)
   createdAt           DateTime          @default(now())
+  deletedAt           DateTime?
+}
+
+model AdminLog {
+  id         String   @id @default(cuid())
+  adminId    String
+  action     String
+  targetId   String?
+  targetType String?
+  notes      String?
+  createdAt  DateTime @default(now())
+}
+
+model Dispute {
+  id           String        @id @default(cuid())
+  jobId        String
+  job          Job           @relation(fields: [jobId], references: [id])
+  reportedById String
+  reason       String
+  description  String
+  status       DisputeStatus @default(OPEN)
+  resolution   String?
+  resolvedById String?
+  resolvedAt   DateTime?
+  createdAt    DateTime      @default(now())
+}
+
+enum DisputeStatus {
+  OPEN
+  UNDER_REVIEW
+  RESOLVED
+  CLOSED
+}
+
+model PlatformSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
 }

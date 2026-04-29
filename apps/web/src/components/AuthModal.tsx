@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { UserProfile, ActiveMode } from '@tradelink/types'
+import { useTranslation } from 'react-i18next'
 import { API_URL } from '../lib/api'
 import { US_STATES } from '../lib/states'
 import { useT } from '../lib/i18n'
@@ -13,7 +14,7 @@ interface Props {
 type Tab = 'register' | 'login'
 
 export function AuthModal({ initialRole, onClose, onSuccess }: Props) {
-  const { t } = useT()
+  const { t } = useTranslation()
   const [tab, setTab] = useState<Tab>('register')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -51,12 +52,12 @@ export function AuthModal({ initialRole, onClose, onSuccess }: Props) {
       })
       const data = await res.json()
       if (!res.ok) {
-        setError(data.error ?? 'Registration failed')
+        setError(data.error ?? t('auth.registrationFailed'))
         return
       }
       onSuccess(data.token, await fetchMe(data.token))
     } catch {
-      setError('Network error. Please try again.')
+      setError(t('common.networkError'))
     } finally {
       setLoading(false)
     }
@@ -74,19 +75,19 @@ export function AuthModal({ initialRole, onClose, onSuccess }: Props) {
       })
       const data = await res.json()
       if (!res.ok) {
-        setError(data.error ?? 'Login failed')
+        setError(data.error ?? t('auth.loginFailed'))
         return
       }
       onSuccess(data.token, await fetchMe(data.token))
     } catch {
-      setError('Network error. Please try again.')
+      setError(t('common.networkError'))
     } finally {
       setLoading(false)
     }
   }
 
-  const switchTab = (t: Tab) => {
-    setTab(t)
+  const switchTab = (tab: Tab) => {
+    setTab(tab)
     setError('')
   }
 
@@ -107,7 +108,7 @@ export function AuthModal({ initialRole, onClose, onSuccess }: Props) {
           <div className="flex items-start justify-between mb-1">
             <div>
               <h2 className="text-2xl font-bold text-gray-900">
-                {tab === 'register' ? t('createAccount') : t('welcomeBack')}
+                {tab === 'register' ? t('auth.createAccount') : t('auth.welcomeBack')}
               </h2>
               {tab === 'register' && (
                 <span
@@ -117,7 +118,7 @@ export function AuthModal({ initialRole, onClose, onSuccess }: Props) {
                       : 'bg-violet-100 text-violet-700'
                   }`}
                 >
-                  {initialRole === 'CLIENT' ? t('startingAsClient') : t('startingAsContractor')}
+                  {t('auth.startingAs', { role: initialRole === 'CLIENT' ? t('auth.client') : t('auth.contractor') })}
                 </span>
               )}
             </div>
@@ -140,7 +141,7 @@ export function AuthModal({ initialRole, onClose, onSuccess }: Props) {
                     : 'text-gray-500 hover:text-gray-700'
                 }`}
               >
-                {tabOption === 'register' ? t('signUp') : t('signIn')}
+                {tabOption === 'register' ? t('auth.signUp') : t('auth.signIn')}
               </button>
             ))}
           </div>
@@ -156,7 +157,7 @@ export function AuthModal({ initialRole, onClose, onSuccess }: Props) {
           {tab === 'register' ? (
             <form onSubmit={handleRegister} className="space-y-4">
               <div>
-                <label className={labelCls}>{t('fullName')}</label>
+                <label className={labelCls}>{t('auth.fullName')}</label>
                 <input
                   type="text"
                   required
@@ -167,7 +168,7 @@ export function AuthModal({ initialRole, onClose, onSuccess }: Props) {
                 />
               </div>
               <div>
-                <label className={labelCls}>{t('email')}</label>
+                <label className={labelCls}>{t('auth.email')}</label>
                 <input
                   type="email"
                   required
@@ -178,27 +179,27 @@ export function AuthModal({ initialRole, onClose, onSuccess }: Props) {
                 />
               </div>
               <div>
-                <label className={labelCls}>{t('password')}</label>
+                <label className={labelCls}>{t('auth.password')}</label>
                 <input
                   type="password"
                   required
                   minLength={8}
                   value={regPassword}
                   onChange={(e) => setRegPassword(e.target.value)}
-                  placeholder={t('passwordHint')}
+                  placeholder={t('auth.passwordPlaceholder')}
                   className={inputCls}
                 />
               </div>
               {initialRole === 'CONTRACTOR' && (
                 <div>
-                  <label className={labelCls}>{t('stateYouWorkIn')}</label>
+                  <label className={labelCls}>{t('auth.stateWorkIn')}</label>
                   <select
                     required
                     value={regState}
                     onChange={(e) => setRegState(e.target.value)}
                     className={inputCls}
                   >
-                    <option value="">{t('selectState')}</option>
+                    <option value="">{t('auth.selectState')}</option>
                     {US_STATES.map((s) => (
                       <option key={s.code} value={s.code}>
                         {s.name}
@@ -212,16 +213,16 @@ export function AuthModal({ initialRole, onClose, onSuccess }: Props) {
                 disabled={loading}
                 className="w-full py-3 mt-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold rounded-lg transition-colors text-sm"
               >
-                {loading ? t('creatingAccount') : t('createAccount')}
+                {loading ? t('auth.creatingAccount') : t('auth.createAccount')}
               </button>
               <p className="text-xs text-center text-gray-400">
-                {t('addRoleAfterSignup')}
+                {t('auth.addRoleAfterSignup')}
               </p>
             </form>
           ) : (
             <form onSubmit={handleLogin} className="space-y-4">
               <div>
-                <label className={labelCls}>{t('email')}</label>
+                <label className={labelCls}>{t('auth.email')}</label>
                 <input
                   type="email"
                   required
@@ -232,13 +233,13 @@ export function AuthModal({ initialRole, onClose, onSuccess }: Props) {
                 />
               </div>
               <div>
-                <label className={labelCls}>{t('password')}</label>
+                <label className={labelCls}>{t('auth.password')}</label>
                 <input
                   type="password"
                   required
                   value={loginPassword}
                   onChange={(e) => setLoginPassword(e.target.value)}
-                  placeholder={t('yourPassword')}
+                  placeholder={t('auth.yourPassword')}
                   className={inputCls}
                 />
               </div>
@@ -247,7 +248,7 @@ export function AuthModal({ initialRole, onClose, onSuccess }: Props) {
                 disabled={loading}
                 className="w-full py-3 mt-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold rounded-lg transition-colors text-sm"
               >
-                {loading ? t('signingIn') : t('signIn')}
+                {loading ? t('auth.signingIn') : t('auth.signIn')}
               </button>
             </form>
           )}

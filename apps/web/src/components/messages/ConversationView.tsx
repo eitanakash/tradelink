@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { Conversation, Message } from '@tradelink/types'
 import { API_URL } from '../../lib/api'
 import { wsClient } from '../../services/websocket'
@@ -10,6 +11,7 @@ interface Props {
 }
 
 export function ConversationView({ conversation, userId, onBack }: Props) {
+  const { t } = useTranslation()
   const [messages, setMessages] = useState<Message[]>([])
   const [loading, setLoading] = useState(true)
   const [text, setText] = useState('')
@@ -102,9 +104,9 @@ export function ConversationView({ conversation, userId, onBack }: Props) {
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
         {loading ? (
-          <p className="text-center text-gray-400 text-sm py-8">Loading…</p>
+          <p className="text-center text-gray-400 text-sm py-8">{t('common.loading')}</p>
         ) : messages.length === 0 ? (
-          <p className="text-center text-gray-400 text-sm py-8">No messages yet. Say hello!</p>
+          <p className="text-center text-gray-400 text-sm py-8">{t('conversation.noMessages')}</p>
         ) : (
           messages.map((msg, i) => {
             const isMine = msg.senderId === userId
@@ -139,7 +141,7 @@ export function ConversationView({ conversation, userId, onBack }: Props) {
                   >
                     {msg.content}
                     {msg.readAt && isMine && i === messages.length - 1 && (
-                      <p className="text-[10px] opacity-70 text-right mt-0.5">Read</p>
+                      <p className="text-[10px] opacity-70 text-right mt-0.5">{t('conversation.read')}</p>
                     )}
                   </div>
                 </div>
@@ -158,7 +160,7 @@ export function ConversationView({ conversation, userId, onBack }: Props) {
             value={text}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Message…"
+            placeholder={t('conversation.messagePlaceholder')}
             rows={1}
             className="flex-1 px-3.5 py-2.5 bg-gray-100 border border-transparent rounded-2xl text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors max-h-32"
             style={{ height: 'auto' }}
@@ -176,7 +178,7 @@ export function ConversationView({ conversation, userId, onBack }: Props) {
             {sending ? '…' : '↑'}
           </button>
         </div>
-        <p className="text-xs text-gray-400 mt-1">Enter to send · Shift+Enter for new line</p>
+        <p className="text-xs text-gray-400 mt-1">{t('conversation.enterToSend')}</p>
       </div>
     </div>
   )

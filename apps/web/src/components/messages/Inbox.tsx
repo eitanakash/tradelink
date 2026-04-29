@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { Conversation, Message } from '@tradelink/types'
 import { API_URL } from '../../lib/api'
 import { useT } from '../../lib/i18n'
@@ -12,7 +13,7 @@ interface Props {
 }
 
 export function Inbox({ userId, initialConversationId }: Props) {
-  const { t } = useT()
+  const { t } = useTranslation()
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(initialConversationId ?? null)
   const [loading, setLoading] = useState(true)
@@ -56,7 +57,7 @@ export function Inbox({ userId, initialConversationId }: Props) {
 
   const selected = conversations.find((c) => c.id === selectedId)
 
-  if (loading) return <div className="text-center py-20 text-gray-400">{t('loading')}</div>
+  if (loading) return <div className="text-center py-20 text-gray-400">{t('common.loading')}</div>
 
   return (
     <div className="flex gap-0 h-[calc(100vh-160px)] min-h-96">
@@ -64,13 +65,13 @@ export function Inbox({ userId, initialConversationId }: Props) {
       <div
         className={`flex flex-col ${selectedId ? 'hidden sm:flex' : 'flex'} w-full sm:w-72 border-r border-gray-200 shrink-0`}
       >
-        <h2 className="text-lg font-bold text-gray-900 px-4 py-3 border-b border-gray-100">Messages</h2>
+        <h2 className="text-lg font-bold text-gray-900 px-4 py-3 border-b border-gray-100">{t('inbox.messages')}</h2>
         {conversations.length === 0 ? (
           <div className="flex-1 flex items-center justify-center text-center px-6">
             <div>
               <p className="text-4xl mb-3">💬</p>
-              <p className="text-sm text-gray-500">{t('noConversations')}</p>
-              <p className="text-xs text-gray-400 mt-1">Start by messaging a contractor on a job.</p>
+              <p className="text-sm text-gray-500">{t('inbox.noConversations')}</p>
+              <p className="text-xs text-gray-400 mt-1">{t('inbox.startByMessaging')}</p>
             </div>
           </div>
         ) : (
@@ -123,7 +124,7 @@ export function Inbox({ userId, initialConversationId }: Props) {
                             : 'text-gray-400'
                         }`}
                       >
-                        {conv.lastMessage.senderId === userId ? 'You: ' : ''}
+                        {conv.lastMessage.senderId === userId ? t('inbox.you') : ''}
                         {conv.lastMessage.content}
                       </p>
                     )}
@@ -152,7 +153,7 @@ export function Inbox({ userId, initialConversationId }: Props) {
           <div className="flex-1 flex items-center justify-center text-center text-gray-400">
             <div>
               <p className="text-4xl mb-3">💬</p>
-              <p className="text-sm">{t('selectConversation')}</p>
+              <p className="text-sm">{t('inbox.selectConversation')}</p>
             </div>
           </div>
         )}

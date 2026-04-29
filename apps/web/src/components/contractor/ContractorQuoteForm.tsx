@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { FileUploadRecord } from '@tradelink/types'
 import { API_URL } from '../../lib/api'
 import { FileUpload } from '../FileUpload'
@@ -71,6 +72,7 @@ function TagInput({
 }
 
 export function ContractorQuoteForm({ jobId, onSubmitted }: Props) {
+  const { t } = useTranslation()
   const [coverLetter, setCoverLetter] = useState('')
   const [tiers, setTiers] = useState<TierForm[]>([makeTier()])
   const [questions, setQuestions] = useState<string[]>([''])
@@ -96,13 +98,13 @@ export function ContractorQuoteForm({ jobId, onSubmitted }: Props) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
-    if (coverLetter.trim().length < 100) {
-      setError('Cover letter must be at least 100 characters.')
+    if (coverLetter.trim().length < 20) {
+      setError(t('quoteForm.coverLetterTooShort'))
       return
     }
     for (const tier of tiers) {
       if (!tier.name.trim() || !tier.price || !tier.description.trim() || !tier.duration.trim()) {
-        setError('Please fill in all required tier fields (name, price, description, duration).')
+        setError(t('quoteForm.fillRequiredFields'))
         return
       }
     }
@@ -129,10 +131,10 @@ export function ContractorQuoteForm({ jobId, onSubmitted }: Props) {
         }),
       })
       const data = await res.json()
-      if (!res.ok) { setError(data.error ?? 'Failed to submit quote'); return }
+      if (!res.ok) { setError(data.error ?? t('quoteForm.failedSubmit')); return }
       onSubmitted()
     } catch {
-      setError('Network error. Please try again.')
+      setError(t('common.networkError'))
     } finally {
       setSubmitting(false)
     }
@@ -140,7 +142,7 @@ export function ContractorQuoteForm({ jobId, onSubmitted }: Props) {
 
   return (
     <div className="bg-white border border-gray-200 rounded-2xl p-6">
-      <h3 className="font-semibold text-gray-900 mb-5">Submit a Quote</h3>
+      <h3 className="font-semibold text-gray-900 mb-5">{t('quoteForm.submitQuote')}</h3>
       {error && (
         <div className="mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
           {error}
@@ -151,9 +153,9 @@ export function ContractorQuoteForm({ jobId, onSubmitted }: Props) {
         {/* Cover Letter */}
         <div>
           <div className="flex items-center justify-between mb-1">
-            <label className={labelCls}>Cover Letter *</label>
-            <span className={`text-xs tabular-nums ${coverLetter.length < 100 ? 'text-gray-400' : 'text-green-600 font-medium'}`}>
-              {coverLetter.length} / 100 min
+            <label className={labelCls}>{t('quoteForm.coverLetter')}</label>
+            <span className={`text-xs tabular-nums ${coverLetter.length < 20 ? 'text-gray-400' : 'text-green-600 font-medium'}`}>
+              {t('quoteForm.coverLetterMin', { count: coverLetter.length })}
             </span>
           </div>
           <textarea
@@ -161,7 +163,7 @@ export function ContractorQuoteForm({ jobId, onSubmitted }: Props) {
             rows={4}
             value={coverLetter}
             onChange={(e) => setCoverLetter(e.target.value)}
-            placeholder="Introduce yourself, describe your experience with this type of work, and explain why you're the right contractor for this job…"
+            placeholder={t('quoteForm.coverLetterPlaceholder')}
             className={inputCls + ' resize-none'}
           />
         </div>
@@ -169,14 +171,14 @@ export function ContractorQuoteForm({ jobId, onSubmitted }: Props) {
         {/* Pricing Tiers */}
         <div>
           <div className="flex items-center justify-between mb-3">
-            <label className={labelCls}>Pricing Tiers * ({tiers.length}/3)</label>
+            <label className={labelCls}>{t('quoteForm.pricingTiers', { count: tiers.length })}</label>
             {tiers.length < 3 && (
               <button
                 type="button"
                 onClick={() => setTiers((prev) => [...prev, makeTier()])}
                 className="text-xs text-violet-600 font-semibold hover:underline"
               >
-                + Add tier
+                {t('quoteForm.addTier')}
               </button>
             )}
           </div>
@@ -184,73 +186,73 @@ export function ContractorQuoteForm({ jobId, onSubmitted }: Props) {
             {tiers.map((tier, i) => (
               <div key={i} className="rounded-xl border border-gray-200 p-4 bg-gray-50/60">
                 <div className="flex items-center justify-between mb-3">
-                  <span className="text-sm font-semibold text-gray-700">Tier {i + 1}</span>
+                  <span className="text-sm font-semibold text-gray-700">{t('quoteForm.tierLabel', { number: i + 1 })}</span>
                   {tiers.length > 1 && (
                     <button
                       type="button"
                       onClick={() => setTiers((prev) => prev.filter((_, idx) => idx !== i))}
                       className="text-xs text-red-500 hover:text-red-700"
                     >
-                      Remove
+                      {t('quoteForm.removeTier')}
                     </button>
                   )}
                 </div>
                 <div className="grid grid-cols-2 gap-3 mb-3">
                   <div>
-                    <label className={labelCls}>Name *</label>
+                    <label className={labelCls}>{t('quoteForm.tierName')}</label>
                     <input
                       type="text" required value={tier.name}
                       onChange={(e) => updateTier(i, { name: e.target.value })}
-                      placeholder="e.g. Basic, Standard, Premium"
+                      placeholder={t('quoteForm.tierNamePlaceholder')}
                       className={inputCls}
                     />
                   </div>
                   <div>
-                    <label className={labelCls}>Price ($) *</label>
+                    <label className={labelCls}>{t('quoteForm.tierPrice')}</label>
                     <input
                       type="number" required min="1" value={tier.price}
                       onChange={(e) => updateTier(i, { price: e.target.value })}
-                      placeholder="e.g. 500"
+                      placeholder={t('quoteForm.tierPricePlaceholder')}
                       className={inputCls}
                     />
                   </div>
                 </div>
                 <div className="mb-3">
-                  <label className={labelCls}>Description *</label>
+                  <label className={labelCls}>{t('quoteForm.tierDescription')}</label>
                   <textarea
                     required rows={2} value={tier.description}
                     onChange={(e) => updateTier(i, { description: e.target.value })}
-                    placeholder="What does this tier cover?"
+                    placeholder={t('quoteForm.tierDescriptionPlaceholder')}
                     className={inputCls + ' resize-none'}
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-3 mb-3">
                   <div>
-                    <label className={labelCls}>Duration *</label>
+                    <label className={labelCls}>{t('quoteForm.tierDuration')}</label>
                     <input
                       type="text" required value={tier.duration}
                       onChange={(e) => updateTier(i, { duration: e.target.value })}
-                      placeholder="e.g. 1–2 days"
+                      placeholder={t('quoteForm.tierDurationPlaceholder')}
                       className={inputCls}
                     />
                   </div>
                   <div>
-                    <label className={labelCls}>Warranty</label>
+                    <label className={labelCls}>{t('quoteForm.tierWarranty')}</label>
                     <input
                       type="text" value={tier.warranty}
                       onChange={(e) => updateTier(i, { warranty: e.target.value })}
-                      placeholder="e.g. 1 year labor"
+                      placeholder={t('quoteForm.tierWarrantyPlaceholder')}
                       className={inputCls}
                     />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className={labelCls}>Inclusions</label>
+                    <label className={labelCls}>{t('quoteForm.inclusions')}</label>
                     <TagInput
                       tags={tier.inclusions}
                       input={tier.inclusionInput}
-                      placeholder="Add item, press Enter"
+                      placeholder={t('quoteForm.addItemEnter')}
                       color="green"
                       onInputChange={(v) => updateTier(i, { inclusionInput: v })}
                       onKeyDown={(e) => {
@@ -266,11 +268,11 @@ export function ContractorQuoteForm({ jobId, onSubmitted }: Props) {
                     />
                   </div>
                   <div>
-                    <label className={labelCls}>Exclusions</label>
+                    <label className={labelCls}>{t('quoteForm.exclusions')}</label>
                     <TagInput
                       tags={tier.exclusions}
                       input={tier.exclusionInput}
-                      placeholder="Add item, press Enter"
+                      placeholder={t('quoteForm.addItemEnter')}
                       color="red"
                       onInputChange={(v) => updateTier(i, { exclusionInput: v })}
                       onKeyDown={(e) => {
@@ -294,14 +296,14 @@ export function ContractorQuoteForm({ jobId, onSubmitted }: Props) {
         {/* Questions for client */}
         <div>
           <div className="flex items-center justify-between mb-3">
-            <label className={labelCls}>Questions for the Client</label>
+            <label className={labelCls}>{t('quoteForm.clientQuestions')}</label>
             {questions.length < 5 && (
               <button
                 type="button"
                 onClick={() => setQuestions((prev) => [...prev, ''])}
                 className="text-xs text-violet-600 font-semibold hover:underline"
               >
-                + Add question
+                {t('quoteForm.addQuestion')}
               </button>
             )}
           </div>
@@ -314,7 +316,7 @@ export function ContractorQuoteForm({ jobId, onSubmitted }: Props) {
                   onChange={(e) =>
                     setQuestions((prev) => prev.map((x, idx) => (idx === i ? e.target.value : x)))
                   }
-                  placeholder={`Question ${i + 1} — optional`}
+                  placeholder={t('quoteForm.questionPlaceholder', { number: i + 1 })}
                   className={inputCls}
                 />
                 {questions.length > 1 && (
@@ -333,7 +335,7 @@ export function ContractorQuoteForm({ jobId, onSubmitted }: Props) {
 
         {/* Portfolio / Files */}
         <div>
-          <label className={labelCls}>Portfolio & Documents</label>
+          <label className={labelCls}>{t('quoteForm.portfolioDocs')}</label>
           <FileUpload
             category="QUOTE_PHOTO"
             existingFiles={quoteFiles}
@@ -341,7 +343,7 @@ export function ContractorQuoteForm({ jobId, onSubmitted }: Props) {
             onRemoved={(id) => setQuoteFiles((prev) => prev.filter((f) => f.id !== id))}
             maxFiles={10}
             accept="image/*,application/pdf"
-            label="Add photos of previous work or your license PDF"
+            label={t('quoteForm.addPortfolioLabel')}
             compact
           />
         </div>
@@ -351,7 +353,7 @@ export function ContractorQuoteForm({ jobId, onSubmitted }: Props) {
           disabled={submitting}
           className="w-full py-3 bg-violet-600 hover:bg-violet-700 disabled:bg-violet-400 text-white font-semibold rounded-xl transition-colors"
         >
-          {submitting ? 'Submitting…' : 'Submit Quote'}
+          {submitting ? t('quoteForm.submitting') : t('quoteForm.submitBtn')}
         </button>
       </form>
     </div>
