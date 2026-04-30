@@ -3,6 +3,7 @@ import type { Job, ContractorProfileData } from '@tradelink/types'
 import { API_URL } from '../../lib/api'
 import { useT } from '../../lib/i18n'
 import { timeAgo } from '../../lib/date'
+import { SkeletonJobList } from '../Skeleton'
 
 interface Props {
   onSelectJob: (id: string) => void
@@ -31,7 +32,12 @@ export function ContractorJobFeed({ onSelectJob }: Props) {
       .finally(() => setLoading(false))
   }, [])
 
-  if (loading) return <div className="text-center py-20 text-gray-400">{t('loading')}</div>
+  if (loading) return (
+    <div>
+      <div className="h-7 w-48 animate-pulse bg-gray-200 rounded mb-4" />
+      <SkeletonJobList />
+    </div>
+  )
   if (error) return <div className="text-center py-20 text-red-500">{error}</div>
 
   const hasNoTrades = (profile?.trades.length ?? 0) === 0

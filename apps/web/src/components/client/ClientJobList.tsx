@@ -3,6 +3,7 @@ import type { Job } from '@tradelink/types'
 import { API_URL } from '../../lib/api'
 import { useT } from '../../lib/i18n'
 import { timeAgo } from '../../lib/date'
+import { SkeletonJobList } from '../Skeleton'
 
 const STATUS_COLORS: Record<string, string> = {
   OPEN: 'bg-green-100 text-green-700',
@@ -91,7 +92,15 @@ export function ClientJobList({ onSelectJob, onPostJob }: Props) {
 
   const canEdit = (status: string) => ['OPEN', 'IN_REVIEW'].includes(status)
 
-  if (loading) return <div className="text-center py-20 text-gray-400">{t('loading')}</div>
+  if (loading) return (
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <div className="h-7 w-24 animate-pulse bg-gray-200 rounded" />
+        <div className="h-9 w-28 animate-pulse bg-gray-200 rounded-lg" />
+      </div>
+      <SkeletonJobList />
+    </div>
+  )
   if (error) return <div className="text-center py-20 text-red-500">{error}</div>
 
   return (
