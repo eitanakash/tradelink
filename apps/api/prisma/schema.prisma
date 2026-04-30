@@ -12,6 +12,10 @@ model User {
   email             String             @unique
   passwordHash      String
   name              String
+  isAdmin           Boolean            @default(false)
+  isSuspended       Boolean            @default(false)
+  suspendedAt       DateTime?
+  suspendedReason   String?
   firstName         String?
   lastName          String?
   phone             String?
@@ -93,6 +97,7 @@ model Job {
   clientMarkedComplete     Boolean        @default(false)
   contractorMarkedComplete Boolean        @default(false)
   review                   Review?
+  disputes                 Dispute[]
 }
 
 enum JobStatus {
@@ -253,3 +258,41 @@ model Review {
   isVerified          Boolean           @default(true)
   createdAt           DateTime          @default(now())
 }
+
+model AdminLog {
+  id         String   @id @default(cuid())
+  adminId    String
+  action     String
+  targetId   String?
+  targetType String?
+  notes      String?
+  createdAt  DateTime @default(now())
+}
+
+model Dispute {
+  id           String        @id @default(cuid())
+  jobId        String
+  job          Job           @relation(fields: [jobId], references: [id])
+  reportedById String
+  reason       String
+  description  String
+  status       DisputeStatus @default(OPEN)
+  resolution   String?
+  resolvedById String?
+  resolvedAt   DateTime?
+  createdAt    DateTime      @default(now())
+}
+
+enum DisputeStatus {
+  OPEN
+  UNDER_REVIEW
+  RESOLVED
+  CLOSED
+}
+
+model PlatformSetting {
+  key       String   @id(map: "PlatformSetting_key")
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
