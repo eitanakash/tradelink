@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { ContractorProfileData, FileUploadRecord } from '@tradelink/types'
+import type { ContractorProfileData, FileUploadRecord, TradeCategory } from '@tradelink/types'
 import { API_URL } from '../../lib/api'
 import { useT } from '../../lib/i18n'
 import { FileUpload } from '../FileUpload'
@@ -12,6 +12,12 @@ export function ContractorProfile() {
   const [error, setError] = useState('')
   const [photos, setPhotos] = useState<FileUploadRecord[]>([])
   const [docs, setDocs] = useState<FileUploadRecord[]>([])
+
+  // Trades
+  const [allCategories, setAllCategories] = useState<TradeCategory[]>([])
+  const [showTradeEditor, setShowTradeEditor] = useState(false)
+  const [selectedTradeIds, setSelectedTradeIds] = useState<string[]>([])
+  const [savingTrades, setSavingTrades] = useState(false)
 
   // Edit state
   const [editingInfo, setEditingInfo] = useState(false)
@@ -33,6 +39,7 @@ export function ContractorProfile() {
       .then((data) => {
         if (data.id) {
           setProfile(data)
+          setSelectedTradeIds(data.trades.map((tr: TradeCategory) => tr.id))
           setPhotos((data.profileFiles ?? []).filter((f: FileUploadRecord) => f.category === 'PROFILE_PHOTO'))
           setDocs((data.profileFiles ?? []).filter((f: FileUploadRecord) => f.category === 'PROFILE_DOCUMENT'))
         } else {
@@ -45,7 +52,33 @@ export function ContractorProfile() {
 
   useEffect(() => {
     loadProfile()
+    fetch(`${API_URL}/categories`, { headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => r.json())
+      .then((data) => { if (Array.isArray(data)) setAllCategories(data) })
   }, [])
+
+  const toggleTrade = (id: string) =>
+    setSelectedTradeIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    )
+
+  const saveTrades = async () => {
+    setSavingTrades(true)
+    try {
+      const res = await fetch(`${API_URL}/contractor/profile`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ tradeIds: selectedTradeIds }),
+      })
+      const data = await res.json()
+      if (data.id) {
+        setProfile((p) => p ? { ...p, trades: data.trades } : p)
+        setShowTradeEditor(false)
+      }
+    } finally {
+      setSavingTrades(false)
+    }
+  }
 
   const startEdit = () => {
     if (!profile) return
@@ -135,6 +168,57 @@ export function ContractorProfile() {
           )}
         </div>
       </div>
+
+      {/* Trades */}
+      <section>
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <h3 className="font-semibold text-gray-900">{t('yourTrades')}</h3>
+            <p className="text-sm text-gray-500 mt-0.5">
+              {(profile.trades.length === 0)
+                ? t('noTradesSelected')
+                : profile.trades.map((tr) => `${tr.icon} ${tr.name}`).join(' · ')}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowTradeEditor(!showTradeEditor)}
+            className="text-sm text-violet-600 hover:underline"
+          >
+            {showTradeEditor ? t('cancel') : t('editBtn')}
+          </button>
+        </div>
+
+        {showTradeEditor && (
+          <div className="bg-white border border-gray-200 rounded-2xl p-5">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-4">
+              {allCategories.map((cat) => (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() => toggleTrade(cat.id)}
+                  className={`flex items-center gap-2 p-2.5 border rounded-lg text-sm transition-all ${
+                    selectedTradeIds.includes(cat.id)
+                      ? 'border-violet-500 bg-violet-50 text-violet-800'
+                      : 'border-gray-200 hover:border-gray-300 text-gray-700'
+                  }`}
+                >
+                  <span>{cat.icon}</span>
+                  <span className="font-medium truncate">{cat.name}</span>
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={saveTrades}
+              disabled={savingTrades}
+              className="w-full py-2.5 bg-violet-600 hover:bg-violet-700 disabled:bg-violet-300 text-white text-sm font-semibold rounded-lg transition-colors"
+            >
+              {savingTrades ? t('savingTrades') : t('saveTrades')}
+            </button>
+          </div>
+        )}
+      </section>
 
       {/* Profile info */}
       <section>

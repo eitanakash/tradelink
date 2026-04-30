@@ -131,7 +131,7 @@ const dicts = {
     openJobsIn: 'Open Jobs in',
     yourArea: 'Your Area',
     selectTradesToSeeJobs: 'Select your trades to see jobs',
-    useTradeEditorHint: 'Use the trade editor above to pick the categories you work in.',
+    useTradeEditorHint: 'Go to My Profile to pick the categories you work in.',
     noOpenJobsNearby: 'No open jobs in your area right now. Check back soon.',
     searchTrades: 'Search trades…',
     // Contractor job detail
@@ -377,7 +377,7 @@ const dicts = {
     openJobsIn: 'Trabajos Abiertos en',
     yourArea: 'Tu Área',
     selectTradesToSeeJobs: 'Selecciona tus oficios para ver trabajos',
-    useTradeEditorHint: 'Usa el editor de oficios arriba para elegir las categorías en que trabajas.',
+    useTradeEditorHint: 'Ve a Mi Perfil para elegir las categorías en que trabajas.',
     noOpenJobsNearby: 'No hay trabajos abiertos en tu área ahora. Vuelve pronto.',
     searchTrades: 'Buscar oficios…',
     // Contractor job detail
