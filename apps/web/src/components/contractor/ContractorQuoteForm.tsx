@@ -71,6 +71,7 @@ function TagInput({
 }
 
 export function ContractorQuoteForm({ jobId, onSubmitted }: Props) {
+  const minChar = 20
   const [coverLetter, setCoverLetter] = useState('')
   const [tiers, setTiers] = useState<TierForm[]>([makeTier()])
   const [questions, setQuestions] = useState<string[]>([''])
@@ -96,8 +97,8 @@ export function ContractorQuoteForm({ jobId, onSubmitted }: Props) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
-    if (coverLetter.trim().length < 100) {
-      setError('Cover letter must be at least 100 characters.')
+    if (coverLetter.trim().length < minChar) {
+      setError(`Cover letter must be at least ${minChar} characters.`)
       return
     }
     for (const tier of tiers) {
@@ -152,8 +153,8 @@ export function ContractorQuoteForm({ jobId, onSubmitted }: Props) {
         <div>
           <div className="flex items-center justify-between mb-1">
             <label className={labelCls}>Cover Letter *</label>
-            <span className={`text-xs tabular-nums ${coverLetter.length < 100 ? 'text-gray-400' : 'text-green-600 font-medium'}`}>
-              {coverLetter.length} / 100 min
+            <span className={`text-xs tabular-nums ${coverLetter.length < minChar ? 'text-gray-400' : 'text-green-600 font-medium'}`}>
+              {coverLetter.length} / {minChar} min
             </span>
           </div>
           <textarea

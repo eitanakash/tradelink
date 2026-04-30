@@ -29,6 +29,14 @@ interface Props {
 type View = 'list' | 'detail' | 'messages' | 'find-contractors' | 'settings'
 type ContractorTab = 'feed' | 'quotes' | 'profile'
 
+interface NavHistoryState {
+  view: View
+  selectedJobId: string | null
+  contractorTab: ContractorTab
+  selectedContractorSlug: string | null
+  selectedConversationId: string | null
+}
+
 export function Dashboard({ user, activeMode, onModeChange, onUserUpdate, onLogout }: Props) {
   const { toast } = useToast()
   const { t } = useT()
@@ -71,16 +79,52 @@ export function Dashboard({ user, activeMode, onModeChange, onUserUpdate, onLogo
   }, [])
 
   useEffect(() => {
+    window.history.replaceState(
+      { view: 'list', selectedJobId: null, contractorTab: 'feed', selectedContractorSlug: null, selectedConversationId: null } as NavHistoryState,
+      ''
+    )
+  }, [])
+
+  useEffect(() => {
+    const onPop = (e: PopStateEvent) => {
+      const s = e.state as NavHistoryState | null
+      if (s) {
+        setView(s.view)
+        setSelectedJobId(s.selectedJobId)
+        setContractorTab(s.contractorTab)
+        setSelectedContractorSlug(s.selectedContractorSlug)
+        setSelectedConversationId(s.selectedConversationId)
+      } else {
+        setView('list')
+        setSelectedJobId(null)
+        setContractorTab('feed')
+        setSelectedContractorSlug(null)
+      }
+    }
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [])
+
+  useEffect(() => {
     setView('list')
     setSelectedJobId(null)
     setContractorTab('feed')
     setSelectedContractorSlug(null)
+    window.history.replaceState(
+      { view: 'list', selectedJobId: null, contractorTab: 'feed', selectedContractorSlug: null, selectedConversationId: null } as NavHistoryState,
+      ''
+    )
   }, [activeMode])
 
   const handleOpenMessages = (conversationId?: string) => {
-    setSelectedConversationId(conversationId ?? null)
+    const convId = conversationId ?? null
+    setSelectedConversationId(convId)
     setView('messages')
     setMsgUnread(0)
+    window.history.pushState(
+      { view: 'messages', selectedJobId: null, contractorTab, selectedContractorSlug: null, selectedConversationId: convId } as NavHistoryState,
+      ''
+    )
   }
 
   const isClientMode = activeMode === 'CLIENT'
@@ -93,11 +137,14 @@ export function Dashboard({ user, activeMode, onModeChange, onUserUpdate, onLogo
   const handleSelectJob = (id: string) => {
     setSelectedJobId(id)
     setView('detail')
+    window.history.pushState(
+      { view: 'detail', selectedJobId: id, contractorTab, selectedContractorSlug: null, selectedConversationId: null } as NavHistoryState,
+      ''
+    )
   }
 
   const handleBack = () => {
-    setView('list')
-    setSelectedJobId(null)
+    window.history.back()
   }
 
   const handleAddRole = async (role: ActiveMode, state?: string) => {
@@ -145,6 +192,7 @@ export function Dashboard({ user, activeMode, onModeChange, onUserUpdate, onLogo
       case 'my-jobs':
         setView('list')
         setSelectedJobId(null)
+        window.history.pushState({ view: 'list', selectedJobId: null, contractorTab, selectedContractorSlug: null, selectedConversationId: null } as NavHistoryState, '')
         break
       case 'post-job':
         setShowPostJob(true)
@@ -152,28 +200,34 @@ export function Dashboard({ user, activeMode, onModeChange, onUserUpdate, onLogo
       case 'find-contractors':
         setView('find-contractors')
         setSelectedContractorSlug(null)
+        window.history.pushState({ view: 'find-contractors', selectedJobId: null, contractorTab, selectedContractorSlug: null, selectedConversationId: null } as NavHistoryState, '')
         break
       case 'messages':
         setView('messages')
         setMsgUnread(0)
+        window.history.pushState({ view: 'messages', selectedJobId: null, contractorTab, selectedContractorSlug: null, selectedConversationId: null } as NavHistoryState, '')
         break
       case 'browse-jobs':
         setContractorTab('feed')
         setView('list')
         setSelectedJobId(null)
+        window.history.pushState({ view: 'list', selectedJobId: null, contractorTab: 'feed', selectedContractorSlug: null, selectedConversationId: null } as NavHistoryState, '')
         break
       case 'my-quotes':
         setContractorTab('quotes')
         setView('list')
         setSelectedJobId(null)
+        window.history.pushState({ view: 'list', selectedJobId: null, contractorTab: 'quotes', selectedContractorSlug: null, selectedConversationId: null } as NavHistoryState, '')
         break
       case 'my-profile':
         setContractorTab('profile')
         setView('list')
         setSelectedJobId(null)
+        window.history.pushState({ view: 'list', selectedJobId: null, contractorTab: 'profile', selectedContractorSlug: null, selectedConversationId: null } as NavHistoryState, '')
         break
       case 'settings/account':
         setView('settings')
+        window.history.pushState({ view: 'settings', selectedJobId: null, contractorTab, selectedContractorSlug: null, selectedConversationId: null } as NavHistoryState, '')
         break
       case 'become-contractor':
         if (missingRole === 'CONTRACTOR') setShowStatePrompt(true)
@@ -212,7 +266,7 @@ export function Dashboard({ user, activeMode, onModeChange, onUserUpdate, onLogo
           <div>
             <div className="flex items-center gap-3 mb-6">
               <button
-                onClick={() => setView('list')}
+                onClick={() => window.history.back()}
                 className="text-sm text-blue-600 hover:underline flex items-center gap-1"
               >
                 {t('backBtn')}
@@ -227,7 +281,7 @@ export function Dashboard({ user, activeMode, onModeChange, onUserUpdate, onLogo
         {view === 'settings' && (
           <div>
             <button
-              onClick={() => setView('list')}
+              onClick={() => window.history.back()}
               className="text-sm text-blue-600 hover:underline flex items-center gap-1 mb-6"
             >
               {t('backBtn')}
@@ -245,11 +299,14 @@ export function Dashboard({ user, activeMode, onModeChange, onUserUpdate, onLogo
             {selectedContractorSlug ? (
               <ContractorPublicProfile
                 slugOrId={selectedContractorSlug}
-                onBack={() => setSelectedContractorSlug(null)}
+                onBack={() => window.history.back()}
               />
             ) : (
               <FindContractors
-                onSelectContractor={(slugOrId) => setSelectedContractorSlug(slugOrId)}
+                onSelectContractor={(slugOrId) => {
+                  setSelectedContractorSlug(slugOrId)
+                  window.history.pushState({ view: 'find-contractors', selectedJobId: null, contractorTab, selectedContractorSlug: slugOrId, selectedConversationId: null } as NavHistoryState, '')
+                }}
               />
             )}
           </>
@@ -281,7 +338,7 @@ export function Dashboard({ user, activeMode, onModeChange, onUserUpdate, onLogo
                   <>
                     <div className="flex border-b border-gray-200 mb-6">
                       <button
-                        onClick={() => setContractorTab('feed')}
+                        onClick={() => { setContractorTab('feed'); window.history.pushState({ view: 'list', selectedJobId: null, contractorTab: 'feed', selectedContractorSlug: null, selectedConversationId: null } as NavHistoryState, '') }}
                         className={`px-4 pb-3 text-sm font-medium transition-colors ${
                           contractorTab === 'feed'
                             ? 'border-b-2 border-violet-500 text-violet-700'
@@ -291,7 +348,7 @@ export function Dashboard({ user, activeMode, onModeChange, onUserUpdate, onLogo
                         {t('navBrowseJobs')}
                       </button>
                       <button
-                        onClick={() => setContractorTab('quotes')}
+                        onClick={() => { setContractorTab('quotes'); window.history.pushState({ view: 'list', selectedJobId: null, contractorTab: 'quotes', selectedContractorSlug: null, selectedConversationId: null } as NavHistoryState, '') }}
                         className={`px-4 pb-3 text-sm font-medium transition-colors ${
                           contractorTab === 'quotes'
                             ? 'border-b-2 border-violet-500 text-violet-700'
@@ -301,7 +358,7 @@ export function Dashboard({ user, activeMode, onModeChange, onUserUpdate, onLogo
                         {t('navMyQuotes')}
                       </button>
                       <button
-                        onClick={() => setContractorTab('profile')}
+                        onClick={() => { setContractorTab('profile'); window.history.pushState({ view: 'list', selectedJobId: null, contractorTab: 'profile', selectedContractorSlug: null, selectedConversationId: null } as NavHistoryState, '') }}
                         className={`px-4 pb-3 text-sm font-medium transition-colors ${
                           contractorTab === 'profile'
                             ? 'border-b-2 border-violet-500 text-violet-700'
