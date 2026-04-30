@@ -2,11 +2,11 @@ import type { FastifyInstance } from 'fastify'
 import { prisma } from '../lib/prisma'
 
 interface UpdateProfileBody {
-  bio?: string
-  headline?: string
-  yearsExperience?: number
-  website?: string
-  phone?: string
+  bio?: string | null
+  headline?: string | null
+  yearsExperience?: number | null
+  website?: string | null
+  phone?: string | null
   tradeIds?: string[]
 }
 

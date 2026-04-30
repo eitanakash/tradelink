@@ -51,6 +51,12 @@ export default function App() {
     setUser(null)
   }
 
+  useEffect(() => {
+    const onExpired = () => handleLogout()
+    window.addEventListener('auth:expired', onExpired)
+    return () => window.removeEventListener('auth:expired', onExpired)
+  }, [])
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">

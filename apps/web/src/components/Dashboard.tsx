@@ -123,6 +123,16 @@ export function Dashboard({ user, activeMode, onModeChange, onUserUpdate, onLogo
     )
   }, [activeMode])
 
+  useEffect(() => {
+    if (view === 'detail') { document.title = 'Job Details · TradeLink'; return }
+    if (view === 'messages') { document.title = 'Messages · TradeLink'; return }
+    if (view === 'find-contractors') { document.title = 'Find Contractors · TradeLink'; return }
+    if (view === 'settings') { document.title = 'Account Settings · TradeLink'; return }
+    if (activeMode === 'CLIENT') { document.title = 'My Jobs · TradeLink'; return }
+    const tab: Record<ContractorTab, string> = { feed: 'Browse Jobs', quotes: 'My Quotes', profile: 'My Profile' }
+    document.title = `${tab[contractorTab]} · TradeLink`
+  }, [view, activeMode, contractorTab])
+
   const handleOpenMessages = (conversationId?: string) => {
     const convId = conversationId ?? null
     setSelectedConversationId(convId)
@@ -336,6 +346,11 @@ export function Dashboard({ user, activeMode, onModeChange, onUserUpdate, onLogo
                     onBack={handleBack}
                     onDeleted={handleBack}
                     onOpenConversation={handleOpenMessages}
+                    onSelectContractor={(slugOrId) => {
+                      setSelectedContractorSlug(slugOrId)
+                      setView('find-contractors')
+                      window.history.pushState({ view: 'find-contractors', selectedJobId: null, contractorTab, selectedContractorSlug: slugOrId, selectedConversationId: null } as NavHistoryState, '')
+                    }}
                   />
                 )}
               </>

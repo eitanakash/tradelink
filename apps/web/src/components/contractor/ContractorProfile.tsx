@@ -141,6 +141,7 @@ export function ContractorProfile() {
   }
 
   const handleReply = async (reviewId: string) => {
+    if (!replyText.trim()) return
     setSavingReply(true)
     try {
       const res = await fetch(`${API_URL}/reviews/${reviewId}/reply`, {
@@ -148,9 +149,9 @@ export function ContractorProfile() {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ reply: replyText.trim() }),
       })
+      const data = await res.json()
       if (res.ok) {
-        const updated: Review = await res.json()
-        setReviews((prev) => prev.map((r) => (r.id === reviewId ? { ...r, contractorReply: updated.contractorReply, contractorRepliedAt: updated.contractorRepliedAt } : r)))
+        setReviews((prev) => prev.map((r) => r.id === reviewId ? { ...r, contractorReply: data.contractorReply, contractorRepliedAt: data.contractorRepliedAt } : r))
         setReplyingTo(null)
         setReplyText('')
       }
@@ -435,7 +436,9 @@ export function ContractorProfile() {
       <section>
         <h3 className="font-semibold text-gray-900 mb-4">Reviews ({reviews.length})</h3>
         {reviews.length === 0 ? (
-          <p className="text-sm text-gray-400 text-center py-6">No reviews yet</p>
+          <p className="text-sm text-gray-400 text-center py-8 bg-white border border-gray-200 rounded-2xl">
+            No reviews yet. Complete jobs to receive client reviews.
+          </p>
         ) : (
           <div className="space-y-5">
             {reviews.map((review) => (

@@ -6,6 +6,8 @@ import { formatDateTime } from '../../lib/date'
 import { FileUpload } from '../FileUpload'
 import { useT } from '../../lib/i18n'
 import { QuoteTierCard } from '../QuoteTierCard'
+import { StarRating } from '../StarRating'
+import { ReviewModal } from '../ReviewModal'
 
 const STATUS_COLORS: Record<string, string> = {
   OPEN: 'bg-green-100 text-green-700',
@@ -22,6 +24,7 @@ interface Props {
   onBack: () => void
   onDeleted: () => void
   onOpenConversation?: (conversationId: string) => void
+  onSelectContractor?: (slugOrId: string) => void
 }
 
 function renderInline(text: string) {
@@ -55,7 +58,7 @@ function MarkdownView({ text }: { text: string }) {
   )
 }
 
-export function ClientJobDetail({ jobId, onBack, onDeleted, onOpenConversation }: Props) {
+export function ClientJobDetail({ jobId, onBack, onDeleted, onOpenConversation, onSelectContractor }: Props) {
   const { t } = useT()
   const [job, setJob] = useState<Job | null>(null)
   const [loading, setLoading] = useState(true)
@@ -85,6 +88,10 @@ export function ClientJobDetail({ jobId, onBack, onDeleted, onOpenConversation }
   const [answeringQuestion, setAnsweringQuestion] = useState<string | null>(null)
   const [expandedQuotes, setExpandedQuotes] = useState<Set<string>>(new Set())
   const [startingConv, setStartingConv] = useState<string | null>(null)
+
+  // Completion + review state
+  const [markingComplete, setMarkingComplete] = useState(false)
+  const [showReviewModal, setShowReviewModal] = useState(false)
 
   // AI panel state
   const [showAiPanel, setShowAiPanel] = useState(false)
@@ -253,12 +260,26 @@ export function ClientJobDetail({ jobId, onBack, onDeleted, onOpenConversation }
     }
   }
 
+  const handleMarkComplete = async () => {
+    setMarkingComplete(true)
+    try {
+      const res = await fetch(`${API_URL}/jobs/${jobId}/complete`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (res.ok) loadJob()
+    } finally {
+      setMarkingComplete(false)
+    }
+  }
+
   if (loading) return <div className="text-center py-20 text-gray-400">{t('loading')}</div>
   if (error || !job) return <div className="text-center py-20 text-red-500">{error || 'Job not found'}</div>
 
   const pendingQuotes = job.quotes?.filter((q) => q.status === 'PENDING') ?? []
   const otherQuotes = job.quotes?.filter((q) => q.status !== 'PENDING') ?? []
   const allQuotes = [...pendingQuotes, ...otherQuotes]
+  const acceptedContractor = job.quotes?.find((q) => q.status === 'ACCEPTED')?.contractor
 
   const inputCls =
     'w-full px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent'
@@ -438,6 +459,76 @@ export function ClientJobDetail({ jobId, onBack, onDeleted, onOpenConversation }
         </div>
       )}
 
+      {/* Job completion section */}
+      {job.status === 'AWARDED' && (
+        <div className="bg-blue-50 border border-blue-200 rounded-2xl p-5 mb-6">
+          <h3 className="font-semibold text-gray-900 mb-1">Mark as Complete</h3>
+          <p className="text-sm text-gray-600 mb-4">Both parties must confirm before the job is marked complete.</p>
+          <div className="space-y-2 mb-4">
+            <div className="flex items-center gap-2">
+              <span className={`text-base ${job.clientMarkedComplete ? 'text-green-500' : 'text-gray-300'}`}>
+                {job.clientMarkedComplete ? '✓' : '○'}
+              </span>
+              <span className="text-sm text-gray-700">
+                You {job.clientMarkedComplete ? '— confirmed' : '— not confirmed yet'}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className={`text-base ${job.contractorMarkedComplete ? 'text-green-500' : 'text-gray-300'}`}>
+                {job.contractorMarkedComplete ? '✓' : '○'}
+              </span>
+              <span className="text-sm text-gray-700">
+                Contractor {job.contractorMarkedComplete ? '— confirmed' : '— not confirmed yet'}
+              </span>
+            </div>
+          </div>
+          {!job.clientMarkedComplete && (
+            <button
+              onClick={handleMarkComplete}
+              disabled={markingComplete}
+              className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-sm font-semibold rounded-xl transition-colors"
+            >
+              {markingComplete ? 'Confirming…' : 'Confirm Completion'}
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Review prompt for completed jobs */}
+      {job.status === 'COMPLETED' && !job.review && (
+        <div className="bg-green-50 border border-green-200 rounded-2xl p-5 mb-6">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-xl">🎉</span>
+            <h3 className="font-semibold text-gray-900">Job Complete!</h3>
+          </div>
+          <p className="text-sm text-gray-600 mb-4">
+            How was your experience? Your review helps other clients choose great contractors.
+          </p>
+          <button
+            onClick={() => setShowReviewModal(true)}
+            className="px-5 py-2.5 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-xl transition-colors"
+          >
+            Leave a Review
+          </button>
+        </div>
+      )}
+
+      {/* Existing review */}
+      {job.status === 'COMPLETED' && job.review && (
+        <div className="bg-white border border-gray-200 rounded-2xl p-5 mb-6">
+          <h3 className="font-semibold text-gray-900 mb-3">Your Review</h3>
+          <StarRating value={job.review.rating} size="sm" />
+          <p className="font-semibold text-gray-900 text-sm mt-2">{job.review.title}</p>
+          <p className="text-sm text-gray-600 mt-1 leading-relaxed">{job.review.body}</p>
+          {job.review.contractorReply && (
+            <div className="mt-3 pl-4 border-l-2 border-gray-200">
+              <p className="text-xs font-semibold text-gray-500 mb-1">Contractor's reply</p>
+              <p className="text-sm text-gray-600 leading-relaxed">{job.review.contractorReply}</p>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Quotes header + AI panel toggle */}
       <div className="flex items-center justify-between mb-3">
         <h3 className="font-semibold text-gray-900">
@@ -519,6 +610,16 @@ export function ClientJobDetail({ jobId, onBack, onDeleted, onOpenConversation }
         <p className="text-sm text-gray-500 py-8 text-center">{t('noQuotesYet')}</p>
       )}
 
+      {/* Review modal */}
+      {showReviewModal && acceptedContractor && (
+        <ReviewModal
+          jobId={jobId}
+          contractorName={acceptedContractor.user.name}
+          onClose={() => setShowReviewModal(false)}
+          onSubmitted={() => { setShowReviewModal(false); loadJob() }}
+        />
+      )}
+
       {/* Quote cards */}
       <div className="space-y-4">
         {allQuotes.map((quote) => {
@@ -553,18 +654,42 @@ export function ClientJobDetail({ jobId, onBack, onDeleted, onOpenConversation }
               >
                 <div className="flex items-center gap-3">
                   <div>
-                    <p className="font-semibold text-gray-900 text-sm">
-                      {quote.contractor?.user.name ?? 'Contractor'}
-                    </p>
-                    {lowestPrice !== null && (
-                      <p className="text-xs text-gray-500 mt-0.5">
-                        {lowestPrice === highestPrice
-                          ? `$${lowestPrice.toLocaleString()}`
-                          : `$${lowestPrice.toLocaleString()} – $${highestPrice!.toLocaleString()}`}
-                        {' · '}
-                        {quote.tiers.length} tier{quote.tiers.length !== 1 ? 's' : ''}
-                      </p>
-                    )}
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                      {onSelectContractor && quote.contractor?.slug ? (
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); onSelectContractor(quote.contractor!.slug!) }}
+                          className="font-semibold text-gray-900 text-sm hover:text-blue-600 hover:underline"
+                        >
+                          {quote.contractor.user.name}
+                        </button>
+                      ) : (
+                        <p className="font-semibold text-gray-900 text-sm">
+                          {quote.contractor?.user.name ?? 'Contractor'}
+                        </p>
+                      )}
+                      {quote.contractor?.isVerified && (
+                        <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full font-medium">✓</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {lowestPrice !== null && (
+                        <p className="text-xs text-gray-500">
+                          {lowestPrice === highestPrice
+                            ? `$${lowestPrice.toLocaleString()}`
+                            : `$${lowestPrice.toLocaleString()} – $${highestPrice!.toLocaleString()}`}
+                          {' · '}
+                          {quote.tiers.length} tier{quote.tiers.length !== 1 ? 's' : ''}
+                        </p>
+                      )}
+                      {(quote.contractor?.totalReviews ?? 0) > 0 && (
+                        <span className="flex items-center gap-0.5 text-xs text-gray-400">
+                          <StarRating value={quote.contractor!.averageRating!} size="sm" />
+                          <span className="ml-0.5">{quote.contractor!.averageRating!.toFixed(1)}</span>
+                          <span>({quote.contractor!.totalReviews})</span>
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">

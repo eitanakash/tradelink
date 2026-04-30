@@ -9,3 +9,10 @@
 .animate-fade-in {
   animation: fade-in 0.2s ease-out;
 }
+
+/* Prevent iOS Safari from zooming in when focusing inputs with small font sizes */
+@supports (-webkit-touch-callout: none) {
+  input, select, textarea {
+    font-size: max(16px, 1em);
+  }
+}

@@ -122,6 +122,52 @@ export function ContractorJobDetail({ jobId, onBack, onOpenConversation }: Props
         )}
       </div>
 
+      {/* Job completion section */}
+      {job.status === 'AWARDED' && myQuote?.status === 'ACCEPTED' && (
+        <div className="bg-violet-50 border border-violet-200 rounded-2xl p-5 mb-6">
+          <h3 className="font-semibold text-gray-900 mb-1">Mark as Complete</h3>
+          <p className="text-sm text-gray-600 mb-4">Confirm when the work is done. The client must also confirm.</p>
+          <div className="space-y-2 mb-4">
+            <div className="flex items-center gap-2">
+              <span className={`text-base ${job.clientMarkedComplete ? 'text-green-500' : 'text-gray-300'}`}>
+                {job.clientMarkedComplete ? '✓' : '○'}
+              </span>
+              <span className="text-sm text-gray-700">
+                Client {job.clientMarkedComplete ? '— confirmed' : '— not confirmed yet'}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className={`text-base ${job.contractorMarkedComplete ? 'text-green-500' : 'text-gray-300'}`}>
+                {job.contractorMarkedComplete ? '✓' : '○'}
+              </span>
+              <span className="text-sm text-gray-700">
+                You {job.contractorMarkedComplete ? '— confirmed' : '— not confirmed yet'}
+              </span>
+            </div>
+          </div>
+          {!job.contractorMarkedComplete && (
+            <button
+              onClick={handleMarkComplete}
+              disabled={markingComplete}
+              className="px-5 py-2.5 bg-violet-600 hover:bg-violet-700 disabled:bg-violet-400 text-white text-sm font-semibold rounded-xl transition-colors"
+            >
+              {markingComplete ? 'Confirming…' : 'Confirm Completion'}
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Completed banner */}
+      {job.status === 'COMPLETED' && (
+        <div className="bg-green-50 border border-green-200 rounded-2xl px-5 py-4 mb-6 flex items-center gap-3">
+          <span className="text-2xl">🎉</span>
+          <div>
+            <p className="font-semibold text-green-800">Job Complete</p>
+            <p className="text-sm text-green-700">This job has been successfully completed.</p>
+          </div>
+        </div>
+      )}
+
       {/* Quote section */}
       {myQuote ? (
         <div
