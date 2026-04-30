@@ -88,7 +88,7 @@ export async function contractorRoutes(app: FastifyInstance) {
     '/contractor/profile',
     { onRequest: [app.authenticate] },
     async (request, reply) => {
-      const { bio, tradeIds } = request.body
+      const { bio, headline, yearsExperience, website, phone, tradeIds } = request.body
 
       const contractor = await prisma.contractorProfile.findUnique({
         where: { userId: request.user.id },
@@ -99,13 +99,44 @@ export async function contractorRoutes(app: FastifyInstance) {
         where: { id: contractor.id },
         data: {
           ...(bio !== undefined ? { bio } : {}),
+          ...(headline !== undefined ? { headline } : {}),
+          ...(yearsExperience !== undefined ? { yearsExperience } : {}),
+          ...(website !== undefined ? { website } : {}),
+          ...(phone !== undefined ? { phone } : {}),
           ...(tradeIds !== undefined
             ? { trades: { set: tradeIds.map((id) => ({ id })) } }
             : {}),
         },
         include: { trades: { select: { id: true, name: true, icon: true } } },
       })
-      return updated
+
+      const profileFiles = await prisma.fileUpload.findMany({
+        where: {
+          uploadedById: request.user.id,
+          category: { in: ['PROFILE_PHOTO', 'PROFILE_DOCUMENT'] },
+        },
+        orderBy: { createdAt: 'asc' },
+      })
+
+      return { ...updated, profileFiles }
+    },
+  )
+
+  app.get(
+    '/contractor/reviews',
+    { onRequest: [app.authenticate] },
+    async (request, reply) => {
+      const contractor = await prisma.contractorProfile.findUnique({
+        where: { userId: request.user.id },
+      })
+      if (!contractor) return reply.status(404).send({ error: 'Contractor profile not found' })
+
+      const reviews = await prisma.review.findMany({
+        where: { contractorId: contractor.id },
+        orderBy: { createdAt: 'desc' },
+        include: { author: { select: { name: true } }, job: { select: { title: true } } },
+      })
+      return reviews
     },
   )
 }

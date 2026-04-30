@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { UserProfile, ActiveMode } from '@tradelink/types'
 import { API_URL } from '../lib/api'
 import { useT } from '../lib/i18n'
@@ -41,20 +41,23 @@ export function Dashboard({ user, activeMode, onModeChange, onUserUpdate, onLogo
   const { toast } = useToast()
   const { t } = useT()
 
-  const [view, setView] = useState<View>('list')
-  const [selectedJobId, setSelectedJobId] = useState<string | null>(null)
+  const saved = window.history.state as NavHistoryState | null
+  const activeModeRef = useRef(activeMode)
+
+  const [view, setView] = useState<View>(saved?.view ?? 'list')
+  const [selectedJobId, setSelectedJobId] = useState<string | null>(saved?.selectedJobId ?? null)
   const [showPostJob, setShowPostJob] = useState(false)
-  const [contractorTab, setContractorTab] = useState<ContractorTab>('feed')
+  const [contractorTab, setContractorTab] = useState<ContractorTab>(saved?.contractorTab ?? 'feed')
 
   const [addingRole, setAddingRole] = useState(false)
   const [roleError, setRoleError] = useState('')
   const [contractorState, setContractorState] = useState('')
   const [showStatePrompt, setShowStatePrompt] = useState(false)
 
-  const [selectedContractorSlug, setSelectedContractorSlug] = useState<string | null>(null)
+  const [selectedContractorSlug, setSelectedContractorSlug] = useState<string | null>(saved?.selectedContractorSlug ?? null)
   const [msgUnread, setMsgUnread] = useState(0)
   const [notifUnread, setNotifUnread] = useState(0)
-  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null)
+  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(saved?.selectedConversationId ?? null)
 
   useEffect(() => {
     const token = localStorage.getItem('token')
@@ -79,10 +82,12 @@ export function Dashboard({ user, activeMode, onModeChange, onUserUpdate, onLogo
   }, [])
 
   useEffect(() => {
-    window.history.replaceState(
-      { view: 'list', selectedJobId: null, contractorTab: 'feed', selectedContractorSlug: null, selectedConversationId: null } as NavHistoryState,
-      ''
-    )
+    if (!window.history.state) {
+      window.history.replaceState(
+        { view: 'list', selectedJobId: null, contractorTab: 'feed', selectedContractorSlug: null, selectedConversationId: null } as NavHistoryState,
+        ''
+      )
+    }
   }, [])
 
   useEffect(() => {
@@ -106,6 +111,8 @@ export function Dashboard({ user, activeMode, onModeChange, onUserUpdate, onLogo
   }, [])
 
   useEffect(() => {
+    if (activeModeRef.current === activeMode) return
+    activeModeRef.current = activeMode
     setView('list')
     setSelectedJobId(null)
     setContractorTab('feed')

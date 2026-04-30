@@ -109,7 +109,7 @@ export async function contractorsRoutes(app: FastifyInstance) {
     { onRequest: [app.authenticate] },
     async (request, reply) => {
       const { id } = request.params
-      const userId = (request.user as any).userId
+      const userId = request.user.id
 
       const job = await prisma.job.findUnique({
         where: { id },
@@ -184,7 +184,7 @@ export async function contractorsRoutes(app: FastifyInstance) {
     { onRequest: [app.authenticate] },
     async (request, reply) => {
       const { id } = request.params
-      const userId = (request.user as any).userId
+      const userId = request.user.id
 
       const review = await prisma.review.findUnique({
         where: { id },
