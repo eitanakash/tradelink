@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { ContractorPublicProfile } from '@tradelink/types'
+import type { ContractorPublicProfile, Review } from '@tradelink/types'
 import { API_URL } from '../../lib/api'
 import { useT } from '../../lib/i18n'
 import { formatDateTime } from '../../lib/date'
@@ -40,6 +40,8 @@ function anonymizeName(fullName: string): string {
   return `${parts[0]} ${parts[parts.length - 1][0]}.`
 }
 
+type ReviewFilter = 'all' | 5 | 4 | 3
+
 interface Props {
   slugOrId: string
   onBack: () => void
@@ -50,6 +52,8 @@ export function ContractorPublicProfile({ slugOrId, onBack }: Props) {
   const [profile, setProfile] = useState<ContractorPublicProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [reviewFilter, setReviewFilter] = useState<ReviewFilter>('all')
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
 
   useEffect(() => {
     setLoading(true)
@@ -80,6 +84,7 @@ export function ContractorPublicProfile({ slugOrId, onBack }: Props) {
   }
 
   const photoFiles = profile.profileFiles.filter((f) => f.category === 'PROFILE_PHOTO')
+  const docFiles = profile.profileFiles.filter((f) => f.category === 'PROFILE_DOCUMENT')
   const hasBreakdown =
     profile.ratingBreakdown &&
     (profile.ratingBreakdown.quality > 0 ||
@@ -207,12 +212,35 @@ export function ContractorPublicProfile({ slugOrId, onBack }: Props) {
           <h2 className="font-semibold text-gray-900 mb-3">{t('portfolio')}</h2>
           <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
             {photoFiles.map((f) => (
-              <img
+              <button
                 key={f.id}
-                src={f.url}
-                alt={f.filename}
-                className="aspect-square object-cover rounded-xl border border-gray-200"
-              />
+                onClick={() => setLightboxUrl(f.url)}
+                className="aspect-square rounded-xl overflow-hidden border border-gray-200 hover:opacity-90 transition-opacity"
+              >
+                <img src={f.url} alt={f.filename} className="w-full h-full object-cover" />
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Documents */}
+      {docFiles.length > 0 && (
+        <div className="bg-white border border-gray-200 rounded-2xl p-6 mb-6">
+          <h2 className="font-semibold text-gray-900 mb-3">Licenses & Documents</h2>
+          <div className="space-y-2">
+            {docFiles.map((f) => (
+              <a
+                key={f.id}
+                href={f.url}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-3 px-4 py-3 bg-gray-50 hover:bg-gray-100 rounded-xl transition-colors"
+              >
+                <span className="text-xl">📄</span>
+                <span className="flex-1 text-sm text-gray-700 truncate">{f.filename}</span>
+                <span className="text-xs text-blue-600">Download</span>
+              </a>
             ))}
           </div>
         </div>
@@ -220,47 +248,138 @@ export function ContractorPublicProfile({ slugOrId, onBack }: Props) {
 
       {/* Reviews */}
       <div className="bg-white border border-gray-200 rounded-2xl p-6">
-        <h2 className="font-semibold text-gray-900 mb-4">
-          Reviews ({profile.totalReviews})
-        </h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-semibold text-gray-900">Reviews ({profile.totalReviews})</h2>
+        </div>
 
-        {profile.reviews.length === 0 ? (
-          <p className="text-sm text-gray-500 text-center py-6">{t('noReviewsYet')}</p>
-        ) : (
-          <div className="space-y-6">
-            {profile.reviews.map((review) => (
-              <div key={review.id} className="border-b border-gray-100 last:border-0 pb-6 last:pb-0">
-                <div className="flex items-start justify-between gap-3 mb-2">
-                  <div>
-                    <StarRating value={review.rating} size="sm" />
-                    <p className="font-semibold text-gray-900 text-sm mt-1">{review.title}</p>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <p className="text-xs text-gray-500">
-                      {review.author ? anonymizeName(review.author.name) : 'Client'}
-                    </p>
-                    <p className="text-xs text-gray-400">{formatDateTime(review.createdAt)}</p>
-                  </div>
-                </div>
-                <p className="text-sm text-gray-700 leading-relaxed">{review.body}</p>
-
-                {/* Contractor reply */}
-                {review.contractorReply && (
-                  <div className="mt-3 ml-4 pl-4 border-l-2 border-gray-200">
-                    <p className="text-xs font-semibold text-gray-500 mb-1">
-                      Contractor's Reply
-                      {review.contractorRepliedAt && (
-                        <span className="font-normal ml-1">· {formatDateTime(review.contractorRepliedAt)}</span>
-                      )}
-                    </p>
-                    <p className="text-sm text-gray-700 leading-relaxed">{review.contractorReply}</p>
-                  </div>
-                )}
+        {/* Star distribution */}
+        {profile.reviews.length > 0 && (
+          <div className="mb-5 p-4 bg-gray-50 rounded-xl">
+            <div className="flex items-center gap-4 mb-4">
+              <div className="text-center">
+                <p className="text-4xl font-bold text-gray-900">{profile.averageRating.toFixed(1)}</p>
+                <StarRating value={profile.averageRating} size="sm" />
+                <p className="text-xs text-gray-500 mt-1">{profile.totalReviews} reviews</p>
               </div>
-            ))}
+              <div className="flex-1 space-y-1.5">
+                {[5, 4, 3, 2, 1].map((stars) => {
+                  const count = profile.reviews.filter((r: Review) => r.rating === stars).length
+                  const pct = profile.reviews.length > 0 ? (count / profile.reviews.length) * 100 : 0
+                  return (
+                    <div key={stars} className="flex items-center gap-2">
+                      <span className="text-xs text-gray-500 w-3">{stars}</span>
+                      <span className="text-yellow-400 text-xs">★</span>
+                      <div className="flex-1 bg-gray-200 rounded-full h-1.5">
+                        <div
+                          className="bg-yellow-400 h-1.5 rounded-full transition-all"
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                      <span className="text-xs text-gray-400 w-4 text-right">{count}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
           </div>
         )}
+
+        {/* Filter tabs */}
+        {profile.reviews.length > 0 && (
+          <div className="flex gap-1.5 mb-4 flex-wrap">
+            {(['all', 5, 4, 3] as ReviewFilter[]).map((f) => {
+              const count = f === 'all'
+                ? profile.reviews.length
+                : f === 3
+                  ? profile.reviews.filter((r: Review) => r.rating <= 3).length
+                  : profile.reviews.filter((r: Review) => r.rating === f).length
+              if (f !== 'all' && count === 0) return null
+              return (
+                <button
+                  key={String(f)}
+                  onClick={() => setReviewFilter(f)}
+                  className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                    reviewFilter === f
+                      ? 'bg-gray-900 text-white'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  {f === 'all' ? 'All' : f === 3 ? '3★ & below' : `${f}★`}
+                  <span className="ml-1 opacity-70">{count}</span>
+                </button>
+              )
+            })}
+          </div>
+        )}
+
+        {(() => {
+          const filtered = reviewFilter === 'all'
+            ? profile.reviews
+            : reviewFilter === 3
+              ? profile.reviews.filter((r: Review) => r.rating <= 3)
+              : profile.reviews.filter((r: Review) => r.rating === reviewFilter)
+
+          if (profile.reviews.length === 0) {
+            return <p className="text-sm text-gray-500 text-center py-6">{t('noReviewsYet')}</p>
+          }
+          if (filtered.length === 0) {
+            return <p className="text-sm text-gray-400 text-center py-6">No reviews match this filter.</p>
+          }
+          return (
+            <div className="space-y-6">
+              {filtered.map((review: Review) => (
+                <div key={review.id} className="border-b border-gray-100 last:border-0 pb-6 last:pb-0">
+                  <div className="flex items-start justify-between gap-3 mb-2">
+                    <div>
+                      <StarRating value={review.rating} size="sm" />
+                      <p className="font-semibold text-gray-900 text-sm mt-1">{review.title}</p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-xs text-gray-500">
+                        {review.author ? anonymizeName(review.author.name) : 'Client'}
+                      </p>
+                      <p className="text-xs text-gray-400">{formatDateTime(review.createdAt)}</p>
+                    </div>
+                  </div>
+                  <p className="text-sm text-gray-700 leading-relaxed">{review.body}</p>
+                  {review.contractorReply && (
+                    <div className="mt-3 ml-4 pl-4 border-l-2 border-gray-200">
+                      <p className="text-xs font-semibold text-gray-500 mb-1">
+                        Contractor's Reply
+                        {review.contractorRepliedAt && (
+                          <span className="font-normal ml-1">· {formatDateTime(review.contractorRepliedAt)}</span>
+                        )}
+                      </p>
+                      <p className="text-sm text-gray-700 leading-relaxed">{review.contractorReply}</p>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )
+        })()}
       </div>
+
+      {/* Photo lightbox */}
+      {lightboxUrl && (
+        <div
+          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
+          onClick={() => setLightboxUrl(null)}
+        >
+          <img
+            src={lightboxUrl}
+            alt=""
+            className="max-w-full max-h-full rounded-xl object-contain"
+            onClick={(e) => e.stopPropagation()}
+          />
+          <button
+            onClick={() => setLightboxUrl(null)}
+            className="absolute top-4 right-4 w-9 h-9 bg-white/20 hover:bg-white/30 text-white rounded-full flex items-center justify-center text-lg"
+          >
+            ✕
+          </button>
+        </div>
+      )}
     </div>
   )
 }

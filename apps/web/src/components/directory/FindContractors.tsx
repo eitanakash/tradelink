@@ -3,6 +3,7 @@ import { API_URL } from '../../lib/api'
 import { US_STATES } from '../../lib/states'
 import { useT } from '../../lib/i18n'
 import { StarRating } from '../StarRating'
+import { useDebounce } from '../../lib/useDebounce'
 
 interface Trade {
   id: string
@@ -49,6 +50,7 @@ function avatarColor(name: string): string {
 export function FindContractors({ onSelectContractor }: Props) {
   const { t } = useT()
   const [search, setSearch] = useState('')
+  const debouncedSearch = useDebounce(search, 250)
   const [stateFilter, setStateFilter] = useState('')
   const [selectedTradeIds, setSelectedTradeIds] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
@@ -115,8 +117,8 @@ export function FindContractors({ onSelectContractor }: Props) {
   }
 
   const displayed = contractors.filter((c) => {
-    if (!search.trim()) return true
-    const q = search.toLowerCase()
+    if (!debouncedSearch.trim()) return true
+    const q = debouncedSearch.toLowerCase()
     return (
       c.user.name.toLowerCase().includes(q) ||
       (c.headline ?? '').toLowerCase().includes(q) ||

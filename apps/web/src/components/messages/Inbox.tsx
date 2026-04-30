@@ -5,6 +5,7 @@ import { useT } from '../../lib/i18n'
 import { timeAgo } from '../../lib/date'
 import { wsClient } from '../../services/websocket'
 import { ConversationView } from './ConversationView'
+import { SkeletonInbox } from '../Skeleton'
 
 interface Props {
   userId: string
@@ -56,7 +57,7 @@ export function Inbox({ userId, initialConversationId }: Props) {
 
   const selected = conversations.find((c) => c.id === selectedId)
 
-  if (loading) return <div className="text-center py-20 text-gray-400">{t('loading')}</div>
+  if (loading) return <SkeletonInbox />
 
   return (
     <div className="flex gap-0 h-[calc(100vh-160px)] min-h-96">
