@@ -129,15 +129,12 @@ export async function contractorRoutes(app: FastifyInstance) {
       const contractor = await prisma.contractorProfile.findUnique({
         where: { userId: request.user.id },
       })
-      if (!contractor) return reply.status(403).send({ error: 'Contractor profile required' })
+      if (!contractor) return reply.status(404).send({ error: 'Contractor profile not found' })
 
       const reviews = await prisma.review.findMany({
         where: { contractorId: contractor.id },
-        include: {
-          author: { select: { name: true } },
-          job: { select: { title: true } },
-        },
         orderBy: { createdAt: 'desc' },
+        include: { author: { select: { name: true } }, job: { select: { title: true } } },
       })
       return reviews
     },

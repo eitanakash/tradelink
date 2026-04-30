@@ -1,10 +1,22 @@
 import { useEffect, useState } from 'react'
-import type { ContractorProfileData, FileUploadRecord, TradeCategory, Review } from '@tradelink/types'
+import type { ContractorProfileData, FileUploadRecord, TradeCategory } from '@tradelink/types'
 import { API_URL } from '../../lib/api'
 import { useT } from '../../lib/i18n'
+import { formatDateTime } from '../../lib/date'
 import { FileUpload } from '../FileUpload'
 import { StarRating } from '../StarRating'
-import { formatDateTime } from '../../lib/date'
+
+interface Review {
+  id: string
+  rating: number
+  title: string
+  body: string
+  contractorReply: string | null
+  contractorRepliedAt: string | null
+  createdAt: string
+  author: { name: string } | null
+  job: { title: string } | null
+}
 
 export function ContractorProfile() {
   const { t } = useT()
@@ -20,11 +32,11 @@ export function ContractorProfile() {
   const [selectedTradeIds, setSelectedTradeIds] = useState<string[]>([])
   const [savingTrades, setSavingTrades] = useState(false)
 
-  // Reviews state
+  // Reviews
   const [reviews, setReviews] = useState<Review[]>([])
   const [replyingTo, setReplyingTo] = useState<string | null>(null)
   const [replyText, setReplyText] = useState('')
-  const [submittingReply, setSubmittingReply] = useState(false)
+  const [savingReply, setSavingReply] = useState(false)
 
   // Edit state
   const [editingInfo, setEditingInfo] = useState(false)
@@ -130,7 +142,7 @@ export function ContractorProfile() {
 
   const handleReply = async (reviewId: string) => {
     if (!replyText.trim()) return
-    setSubmittingReply(true)
+    setSavingReply(true)
     try {
       const res = await fetch(`${API_URL}/reviews/${reviewId}/reply`, {
         method: 'PATCH',
@@ -144,7 +156,7 @@ export function ContractorProfile() {
         setReplyText('')
       }
     } finally {
-      setSubmittingReply(false)
+      setSavingReply(false)
     }
   }
 
@@ -422,13 +434,13 @@ export function ContractorProfile() {
 
       {/* Reviews */}
       <section>
-        <h3 className="font-semibold text-gray-900 mb-3">Reviews ({reviews.length})</h3>
+        <h3 className="font-semibold text-gray-900 mb-4">Reviews ({reviews.length})</h3>
         {reviews.length === 0 ? (
           <p className="text-sm text-gray-400 text-center py-8 bg-white border border-gray-200 rounded-2xl">
             No reviews yet. Complete jobs to receive client reviews.
           </p>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-5">
             {reviews.map((review) => (
               <div key={review.id} className="bg-white border border-gray-200 rounded-2xl p-5">
                 <div className="flex items-start justify-between gap-3 mb-2">
@@ -437,58 +449,57 @@ export function ContractorProfile() {
                     <p className="font-semibold text-gray-900 text-sm mt-1">{review.title}</p>
                   </div>
                   <div className="text-right shrink-0">
-                    <p className="text-xs text-gray-500">
-                      {review.author
-                        ? `${review.author.name.split(' ')[0]} ${review.author.name.split(' ').slice(-1)[0]?.[0] ?? ''}.`
-                        : 'Client'}
-                    </p>
+                    <p className="text-xs text-gray-500">{review.author?.name ?? 'Client'}</p>
                     <p className="text-xs text-gray-400">{formatDateTime(review.createdAt)}</p>
                   </div>
                 </div>
-                <p className="text-sm text-gray-600 leading-relaxed mb-3">{review.body}</p>
+                {review.job && (
+                  <p className="text-xs text-gray-400 mb-1.5">For: {review.job.title}</p>
+                )}
+                <p className="text-sm text-gray-700 leading-relaxed mb-3">{review.body}</p>
 
-                {/* Existing reply */}
-                {review.contractorReply && (
-                  <div className="pl-4 border-l-2 border-gray-200 mb-3">
-                    <p className="text-xs font-semibold text-gray-500 mb-1">Your Reply</p>
-                    <p className="text-sm text-gray-600 leading-relaxed">{review.contractorReply}</p>
+                {review.contractorReply ? (
+                  <div className="ml-4 pl-4 border-l-2 border-gray-200">
+                    <p className="text-xs font-semibold text-gray-500 mb-1">
+                      Your reply
+                      {review.contractorRepliedAt && (
+                        <span className="font-normal ml-1">· {formatDateTime(review.contractorRepliedAt)}</span>
+                      )}
+                    </p>
+                    <p className="text-sm text-gray-700">{review.contractorReply}</p>
                   </div>
-                )}
-
-                {/* Reply form */}
-                {!review.contractorReply && replyingTo !== review.id && (
-                  <button
-                    onClick={() => { setReplyingTo(review.id); setReplyText('') }}
-                    className="text-sm text-violet-600 hover:underline"
-                  >
-                    Reply to this review
-                  </button>
-                )}
-                {replyingTo === review.id && (
-                  <div className="mt-2">
+                ) : replyingTo === review.id ? (
+                  <div className="mt-3">
                     <textarea
                       value={replyText}
                       onChange={(e) => setReplyText(e.target.value)}
-                      placeholder="Write a professional reply…"
+                      placeholder="Write your reply…"
                       rows={3}
-                      className={`${inputCls} resize-none mb-2`}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-violet-500"
                     />
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => setReplyingTo(null)}
-                        className="px-3 py-1.5 border border-gray-300 text-gray-600 text-sm rounded-lg hover:bg-gray-50 transition-colors"
-                      >
-                        Cancel
-                      </button>
+                    <div className="flex gap-2 mt-2">
                       <button
                         onClick={() => handleReply(review.id)}
-                        disabled={submittingReply || !replyText.trim()}
-                        className="px-4 py-1.5 bg-violet-600 hover:bg-violet-700 disabled:bg-violet-300 text-white text-sm font-semibold rounded-lg transition-colors"
+                        disabled={savingReply || !replyText.trim()}
+                        className="px-4 py-1.5 bg-violet-600 hover:bg-violet-700 disabled:bg-violet-300 text-white text-sm font-medium rounded-lg transition-colors"
                       >
-                        {submittingReply ? 'Submitting…' : 'Submit Reply'}
+                        {savingReply ? 'Saving…' : 'Post Reply'}
+                      </button>
+                      <button
+                        onClick={() => { setReplyingTo(null); setReplyText('') }}
+                        className="px-4 py-1.5 border border-gray-300 text-gray-600 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors"
+                      >
+                        {t('cancel')}
                       </button>
                     </div>
                   </div>
+                ) : (
+                  <button
+                    onClick={() => { setReplyingTo(review.id); setReplyText('') }}
+                    className="text-xs text-violet-600 hover:underline"
+                  >
+                    Reply to review
+                  </button>
                 )}
               </div>
             ))}

@@ -44,6 +44,19 @@ export function ContractorJobDetail({ jobId, onBack, onOpenConversation }: Props
 
   const myQuote: JobQuote | undefined = job?.quotes?.[0]
 
+  const handleMarkComplete = async () => {
+    setMarkingComplete(true)
+    try {
+      const res = await fetch(`${API_URL}/jobs/${jobId}/complete`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (res.ok) loadJob()
+    } finally {
+      setMarkingComplete(false)
+    }
+  }
+
   const handleWithdraw = async () => {
     if (!myQuote) return
     setWithdrawing(true)
@@ -55,19 +68,6 @@ export function ContractorJobDetail({ jobId, onBack, onOpenConversation }: Props
       onBack()
     } finally {
       setWithdrawing(false)
-    }
-  }
-
-  const handleMarkComplete = async () => {
-    setMarkingComplete(true)
-    try {
-      const res = await fetch(`${API_URL}/jobs/${jobId}/complete`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      if (res.ok) loadJob()
-    } finally {
-      setMarkingComplete(false)
     }
   }
 
@@ -277,9 +277,41 @@ export function ContractorJobDetail({ jobId, onBack, onOpenConversation }: Props
           )}
 
           {/* Status messages */}
-          {myQuote.status === 'ACCEPTED' && (
+          {myQuote.status === 'ACCEPTED' && job.status === 'AWARDED' && (
+            <div className="mt-4 pt-4 border-t border-green-200">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Job Completion</p>
+              <div className="flex gap-4 mb-3">
+                <div className="flex items-center gap-1.5">
+                  <span className={`w-3 h-3 rounded-full ${job.clientMarkedComplete ? 'bg-green-500' : 'bg-gray-300'}`} />
+                  <span className="text-xs text-gray-600">Client {job.clientMarkedComplete ? 'confirmed' : 'pending'}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className={`w-3 h-3 rounded-full ${job.contractorMarkedComplete ? 'bg-green-500' : 'bg-gray-300'}`} />
+                  <span className="text-xs text-gray-600">You {job.contractorMarkedComplete ? 'confirmed' : 'pending'}</span>
+                </div>
+              </div>
+              {!job.contractorMarkedComplete && (
+                <button
+                  onClick={handleMarkComplete}
+                  disabled={markingComplete}
+                  className="w-full py-2.5 bg-green-600 hover:bg-green-700 disabled:bg-green-300 text-white text-sm font-semibold rounded-xl transition-colors"
+                >
+                  {markingComplete ? 'Confirming…' : 'Mark as Complete'}
+                </button>
+              )}
+              {job.contractorMarkedComplete && !job.clientMarkedComplete && (
+                <p className="text-xs text-gray-500 text-center">Waiting for client to confirm completion</p>
+              )}
+            </div>
+          )}
+          {myQuote.status === 'ACCEPTED' && job.status !== 'AWARDED' && job.status !== 'COMPLETED' && (
             <div className="rounded-lg bg-green-100 px-4 py-3 text-sm font-medium text-green-800">
               🎉 {t('congratsAccepted')}
+            </div>
+          )}
+          {job.status === 'COMPLETED' && (
+            <div className="rounded-lg bg-blue-50 px-4 py-3 text-sm font-medium text-blue-700">
+              ✓ Job completed
             </div>
           )}
           {myQuote.status === 'REJECTED' && (
