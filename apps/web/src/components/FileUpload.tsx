@@ -115,12 +115,8 @@ export function FileUpload({
             prev.map((p) => (p.localId === pf.localId ? { ...p, progress: pct } : p)),
           )
         })
-        setPending((prev) =>
-          prev.map((p) =>
-            p.localId === pf.localId ? { ...p, status: 'done', result, progress: 100 } : p,
-          ),
-        )
         onUploaded?.(result)
+        setPending((prev) => prev.filter((p) => p.localId !== pf.localId))
       } catch (err: any) {
         setPending((prev) =>
           prev.map((p) =>

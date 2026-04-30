@@ -150,7 +150,7 @@ export async function jobRoutes(app: FastifyInstance) {
           where: {
             state: contractor.state,
             status: 'OPEN',
-            ...(tradeCategoryIds.length > 0 ? { categoryId: { in: tradeCategoryIds } } : {}),
+            categoryId: { in: tradeCategoryIds },
           },
           include: {
             category: true,

@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import type { TradeCategory, JobSummary, FileUploadRecord } from '@tradelink/types'
+import type { TradeCategory, JobSummary } from '@tradelink/types'
 import { API_URL } from '../../lib/api'
 import { US_STATES } from '../../lib/states'
-import { FileUpload } from '../FileUpload'
 import { useT } from '../../lib/i18n'
 
 interface Props {
@@ -70,8 +69,8 @@ export function PostJobModal({ onClose, onCreated }: Props) {
   const [manualState, setManualState] = useState('')
   const [manualSubmitting, setManualSubmitting] = useState(false)
   const [manualError, setManualError] = useState('')
-  const [manualJobId, setManualJobId] = useState<string | null>(null)
-  const [manualFiles, setManualFiles] = useState<FileUploadRecord[]>([])
+  const [manualPendingFiles, setManualPendingFiles] = useState<File[]>([])
+  const manualFileRef = useRef<HTMLInputElement>(null)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -231,7 +230,19 @@ export function PostJobModal({ onClose, onCreated }: Props) {
       })
       const data = await res.json()
       if (!res.ok) { setManualError(data.error ?? 'Failed to create job'); return }
-      setManualJobId(data.id)
+      const jobId: string = data.id
+      for (const file of manualPendingFiles) {
+        const form = new FormData()
+        form.append('file', file)
+        form.append('category', 'JOB_PHOTO')
+        form.append('jobId', jobId)
+        await fetch(`${API_URL}/uploads`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+          body: form,
+        })
+      }
+      onCreated(jobId)
     } catch {
       setManualError('Network error. Please try again.')
     } finally {
@@ -601,105 +612,133 @@ export function PostJobModal({ onClose, onCreated }: Props) {
         {/* Step — Manual form */}
         {step === 'manual' && (
           <div className="overflow-y-auto p-6">
-            {!manualJobId ? (
-              <form onSubmit={handleManualSubmit} className="space-y-4">
-                {manualError && (
-                  <div className="px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
-                    {manualError}
+            <form onSubmit={handleManualSubmit} className="space-y-4">
+              {manualError && (
+                <div className="px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                  {manualError}
+                </div>
+              )}
+              <div>
+                <label className={labelCls}>{t('jobTitleLabel')}</label>
+                <input
+                  type="text"
+                  required
+                  value={manualTitle}
+                  onChange={(e) => setManualTitle(e.target.value)}
+                  placeholder={t('jobTitlePlaceholder')}
+                  className={inputCls}
+                />
+              </div>
+              <div>
+                <label className={labelCls}>{t('descriptionLabel')}</label>
+                <textarea
+                  required
+                  value={manualDescription}
+                  onChange={(e) => setManualDescription(e.target.value)}
+                  placeholder={t('describeJob')}
+                  rows={4}
+                  className={inputCls + ' resize-none'}
+                />
+              </div>
+              <div>
+                <label className={labelCls}>{t('streetAddress')}</label>
+                <input
+                  type="text"
+                  required
+                  value={manualAddress}
+                  onChange={(e) => setManualAddress(e.target.value)}
+                  placeholder={t('streetAddressPlaceholder')}
+                  className={inputCls}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={labelCls}>{t('cityLabel')}</label>
+                  <input
+                    type="text"
+                    required
+                    value={manualCity}
+                    onChange={(e) => setManualCity(e.target.value)}
+                    placeholder={t('cityPlaceholder')}
+                    className={inputCls}
+                  />
+                </div>
+                <div>
+                  <label className={labelCls}>{t('stateLabel')}</label>
+                  <select
+                    value={manualState}
+                    onChange={(e) => setManualState(e.target.value)}
+                    required
+                    className={inputCls}
+                  >
+                    <option value="">{t('selectStatePlaceholder')}</option>
+                    {US_STATES.map((s) => (
+                      <option key={s.code} value={s.code}>{s.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Inline photo picker */}
+              <div>
+                <label className={labelCls}>{t('addPhotosOrDocs')} <span className="font-normal text-gray-400">(optional)</span></label>
+                <input
+                  ref={manualFileRef}
+                  type="file"
+                  multiple
+                  accept="image/*,application/pdf,video/mp4,video/quicktime"
+                  className="hidden"
+                  onChange={(e) => {
+                    const files = Array.from(e.target.files ?? [])
+                    if (files.length) setManualPendingFiles((prev) => [...prev, ...files])
+                    e.target.value = ''
+                  }}
+                />
+                {manualPendingFiles.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {manualPendingFiles.map((f, i) => (
+                      <div key={i} className="relative">
+                        {f.type.startsWith('image/') ? (
+                          <img
+                            src={URL.createObjectURL(f)}
+                            alt={f.name}
+                            className="w-16 h-16 object-cover rounded-lg border border-gray-200"
+                          />
+                        ) : (
+                          <div className="flex items-center gap-1 px-2 py-1.5 bg-gray-100 rounded-lg text-xs text-gray-600 h-16">
+                            📄 {f.name.slice(0, 14)}…
+                          </div>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => setManualPendingFiles((prev) => prev.filter((_, j) => j !== i))}
+                          className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-500 text-white rounded-full text-xs flex items-center justify-center leading-none"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
                   </div>
                 )}
-                <div>
-                  <label className={labelCls}>{t('jobTitleLabel')}</label>
-                  <input
-                    type="text"
-                    required
-                    value={manualTitle}
-                    onChange={(e) => setManualTitle(e.target.value)}
-                    placeholder={t('jobTitlePlaceholder')}
-                    className={inputCls}
-                  />
-                </div>
-                <div>
-                  <label className={labelCls}>{t('descriptionLabel')}</label>
-                  <textarea
-                    required
-                    value={manualDescription}
-                    onChange={(e) => setManualDescription(e.target.value)}
-                    placeholder={t('describeJob')}
-                    rows={4}
-                    className={inputCls + ' resize-none'}
-                  />
-                </div>
-                <div>
-                  <label className={labelCls}>{t('streetAddress')}</label>
-                  <input
-                    type="text"
-                    required
-                    value={manualAddress}
-                    onChange={(e) => setManualAddress(e.target.value)}
-                    placeholder={t('streetAddressPlaceholder')}
-                    className={inputCls}
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className={labelCls}>{t('cityLabel')}</label>
-                    <input
-                      type="text"
-                      required
-                      value={manualCity}
-                      onChange={(e) => setManualCity(e.target.value)}
-                      placeholder={t('cityPlaceholder')}
-                      className={inputCls}
-                    />
-                  </div>
-                  <div>
-                    <label className={labelCls}>{t('stateLabel')}</label>
-                    <select
-                      value={manualState}
-                      onChange={(e) => setManualState(e.target.value)}
-                      required
-                      className={inputCls}
-                    >
-                      <option value="">{t('selectStatePlaceholder')}</option>
-                      {US_STATES.map((s) => (
-                        <option key={s.code} value={s.code}>{s.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
                 <button
-                  type="submit"
-                  disabled={manualSubmitting}
-                  className="w-full py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white font-semibold rounded-xl transition-colors"
+                  type="button"
+                  onClick={() => manualFileRef.current?.click()}
+                  className="w-full py-2 border-2 border-dashed border-gray-300 hover:border-gray-400 rounded-xl text-sm text-gray-500 hover:text-gray-600 transition-colors"
                 >
-                  {manualSubmitting ? t('posting') : t('postJobBtn')}
-                </button>
-              </form>
-            ) : (
-              <div className="space-y-5">
-                <div className="text-center py-2">
-                  <p className="text-lg font-semibold text-gray-900">{t('jobPosted')}</p>
-                  <p className="text-sm text-gray-500 mt-1">{t('addPhotosHint')}</p>
-                </div>
-                <FileUpload
-                  category="JOB_PHOTO"
-                  jobId={manualJobId}
-                  existingFiles={manualFiles}
-                  onUploaded={(f) => setManualFiles((prev) => [...prev, f])}
-                  onRemoved={(id) => setManualFiles((prev) => prev.filter((f) => f.id !== id))}
-                  maxFiles={20}
-                  accept="image/*,application/pdf,video/mp4,video/quicktime"
-                  label={t('addPhotosOrDocs')}
-                />
-                <button
-                  onClick={() => onCreated(manualJobId)}
-                  className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors"
-                >
-                  {t('viewJob')}
+                  📎 Add photos or documents
                 </button>
               </div>
-            )}
+
+              <button
+                type="submit"
+                disabled={manualSubmitting}
+                className="w-full py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white font-semibold rounded-xl transition-colors"
+              >
+                {manualSubmitting
+                  ? (manualPendingFiles.length > 0 ? 'Uploading…' : t('posting'))
+                  : t('postJobBtn')}
+              </button>
+            </form>
           </div>
         )}
       </div>
