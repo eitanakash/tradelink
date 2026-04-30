@@ -15,13 +15,14 @@ import { uploadRoutes } from './routes/uploads'
 import { conversationRoutes } from './routes/conversations'
 import { notificationRoutes } from './routes/notifications'
 import { accountRoutes } from './routes/account'
+import { adminRoutes } from './routes/admin'
 
 const app = Fastify({ logger: true, bodyLimit: 4 * 1024 * 1024 })
 
 app.register(websocket)
 
 app.register(cors, {
-  origin: 'http://localhost:5173',
+  origin: ['http://localhost:5173', 'http://localhost:5174'],
 })
 
 app.register(multipart, {
@@ -53,6 +54,7 @@ app.register(uploadRoutes)
 app.register(conversationRoutes)
 app.register(notificationRoutes)
 app.register(accountRoutes)
+app.register(adminRoutes)
 
 const start = async () => {
   try {
