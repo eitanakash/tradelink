@@ -257,6 +257,7 @@ model Review {
   contractorRepliedAt DateTime?
   isVerified          Boolean           @default(true)
   createdAt           DateTime          @default(now())
+  deletedAt           DateTime?
 }
 
 model AdminLog {
