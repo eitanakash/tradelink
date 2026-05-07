@@ -18,7 +18,7 @@ export async function sendIfOffline(userId: string, emailFn: (email: string) => 
   try {
     await emailFn(email)
   } catch (err) {
-    console.error('Email send failed:', err)
+    process.stderr.write(`Email send failed: ${err}\n`)
   }
 }
 
