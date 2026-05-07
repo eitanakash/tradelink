@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "scripts": {
     "dev": "sh -c 'set -a; . ../../.env; set +a; tsx watch src/index.ts'",
-    "build": "tsc",
-    "start": "node dist/index.js",
+    "build": "tsc && prisma generate",
+    "start": "prisma migrate deploy && node dist/index.js",
     "db:generate": "sh -c 'set -a; . ../../.env; set +a; prisma generate'",
     "db:migrate": "sh -c 'set -a; . ../../.env; set +a; prisma migrate dev'",
     "db:push": "sh -c 'set -a; . ../../.env; set +a; prisma db push'",

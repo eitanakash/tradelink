@@ -21,9 +21,11 @@ const app = Fastify({ logger: true, bodyLimit: 4 * 1024 * 1024 })
 
 app.register(websocket)
 
-app.register(cors, {
-  origin: ['http://localhost:5173', 'http://localhost:5174'],
-})
+const corsOrigins = process.env.CORS_ORIGINS
+  ? process.env.CORS_ORIGINS.split(',').map((o) => o.trim())
+  : ['http://localhost:5173', 'http://localhost:5174']
+
+app.register(cors, { origin: corsOrigins })
 
 app.register(multipart, {
   limits: { fileSize: 50 * 1024 * 1024 },
