@@ -1,4 +1,6 @@
 import './types'
+import { initSentry } from './lib/sentry'
+initSentry()
 import Fastify from 'fastify'
 import cors from '@fastify/cors'
 import helmet from '@fastify/helmet'
@@ -7,6 +9,8 @@ import jwt from '@fastify/jwt'
 import multipart from '@fastify/multipart'
 import websocket from '@fastify/websocket'
 import type { FastifyRequest, FastifyReply } from 'fastify'
+import { redis } from './lib/redis'
+import { prisma } from './lib/prisma'
 import { authRoutes } from './routes/auth'
 import { jobRoutes } from './routes/jobs'
 import { contractorRoutes } from './routes/contractor'
@@ -29,13 +33,13 @@ const app = Fastify({
 })
 
 app.register(websocket)
-
 app.register(helmet, { contentSecurityPolicy: false })
 
 app.register(rateLimit, {
   global: true,
   max: 100,
   timeWindow: '1 minute',
+  redis,
   keyGenerator: (req: FastifyRequest) => req.ip,
 })
 
@@ -44,11 +48,7 @@ const corsOrigins = isProd
   : ['http://localhost:5173', 'http://localhost:5174']
 
 app.register(cors, { origin: corsOrigins })
-
-app.register(multipart, {
-  limits: { fileSize: 50 * 1024 * 1024 },
-})
-
+app.register(multipart, { limits: { fileSize: 50 * 1024 * 1024 } })
 app.register(jwt, {
   secret: process.env.JWT_SECRET || 'changeme-set-jwt-secret-in-env',
 })
@@ -61,12 +61,24 @@ app.decorate('authenticate', async function (request: FastifyRequest, reply: Fas
   }
 })
 
-app.get('/health', async () => ({
-  status: 'ok',
-  timestamp: new Date().toISOString(),
-  environment: process.env.NODE_ENV ?? 'development',
-  version: process.env.npm_package_version,
-}))
+app.get('/health', async (_request, reply) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`
+    await redis.ping()
+    return reply.send({
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV ?? 'development',
+      version: process.env.npm_package_version,
+    })
+  } catch (err) {
+    return reply.status(503).send({
+      status: 'error',
+      timestamp: new Date().toISOString(),
+      error: err instanceof Error ? err.message : 'Health check failed',
+    })
+  }
+})
 
 app.register(authRoutes)
 app.register(jobRoutes)
