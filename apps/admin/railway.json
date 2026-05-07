@@ -5,7 +5,7 @@
     "buildCommand": "pnpm install && pnpm build"
   },
   "deploy": {
-    "startCommand": "npx serve dist -p $PORT",
+    "startCommand": "npx serve -s dist -p $PORT",
     "restartPolicyType": "ON_FAILURE"
   }
 }

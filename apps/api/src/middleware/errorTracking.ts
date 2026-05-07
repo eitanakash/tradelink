@@ -1,47 +1,31 @@
 import type { FastifyInstance } from 'fastify'
-import { Resend } from 'resend'
-
-const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL
-const APP_URL = process.env.APP_URL ?? 'http://localhost:3000'
-const isProd = process.env.NODE_ENV === 'production'
+import { Sentry } from '../lib/sentry'
 
 export function registerErrorTracking(app: FastifyInstance) {
   app.setErrorHandler(async (error, request, reply) => {
-    const context = {
-      url: request.url,
-      method: request.method,
-      userId: (request.user as any)?.id ?? null,
-      params: request.params,
-      statusCode: error.statusCode ?? 500,
-      message: error.message,
-      stack: error.stack,
-    }
-
     if (error.statusCode && error.statusCode < 500) {
       return reply.status(error.statusCode).send({ error: error.message })
     }
 
-    app.log.error({ err: error, context }, 'Unhandled error')
+    app.log.error({ err: error, url: request.url, method: request.method }, 'Unhandled error')
 
-    if (isProd && resend && ADMIN_EMAIL) {
-      resend.emails.send({
-        from: process.env.EMAIL_FROM ?? `errors@travajos.com`,
-        to: ADMIN_EMAIL,
-        subject: `[${APP_URL}] Server Error: ${error.message}`,
-        html: `<pre style="font-family:monospace;font-size:13px">${JSON.stringify(context, null, 2)}</pre>`,
-      }).catch(() => {})
-    }
+    Sentry.withScope((scope) => {
+      scope.setUser({ id: (request.user as any)?.id ?? undefined })
+      scope.setContext('request', { url: request.url, method: request.method, params: request.params })
+      Sentry.captureException(error)
+    })
 
     reply.status(500).send({ error: 'Internal server error' })
   })
 
   process.on('unhandledRejection', (reason) => {
     app.log.error({ reason }, 'Unhandled promise rejection')
+    Sentry.captureException(reason)
   })
 
   process.on('uncaughtException', (err) => {
     app.log.error({ err }, 'Uncaught exception')
+    Sentry.captureException(err)
     process.exit(1)
   })
 }
