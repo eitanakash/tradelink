@@ -35,6 +35,9 @@ export type ActiveMode = 'CLIENT' | 'CONTRACTOR'
 
 export interface HealthResponse {
   status: 'ok'
+  timestamp: string
+  environment: string
+  version: string | undefined
 }
 
 export interface AuthResponse {

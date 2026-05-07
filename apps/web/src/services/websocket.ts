@@ -18,7 +18,10 @@ class WSClient {
   private _connect() {
     if (!this.token) return
     try {
-      this.ws = new WebSocket(`ws://localhost:3000/ws?token=${this.token}`)
+      const base = (import.meta.env.VITE_API_URL ?? 'http://localhost:3000')
+        .replace('https://', 'wss://')
+        .replace('http://', 'ws://')
+      this.ws = new WebSocket(`${base}/ws?token=${this.token}`)
     } catch {
       this._scheduleReconnect()
       return

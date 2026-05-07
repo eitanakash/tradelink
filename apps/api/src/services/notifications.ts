@@ -17,7 +17,7 @@ export async function createNotification({
   })
   wsManager.send(userId, 'NEW_NOTIFICATION', notification)
   if (!wsManager.isOnline(userId) && emailFn) {
-    emailFn().catch((err) => console.error('Email error:', err))
+    emailFn().catch((err) => process.stderr.write(`Email error: ${err}\n`))
   }
   return notification
 }
