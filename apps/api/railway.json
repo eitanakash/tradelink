@@ -5,7 +5,7 @@
     "buildCommand": "corepack enable && corepack prepare pnpm@9.15.0 --activate && pnpm install --no-frozen-lockfile && pnpm --filter api build"
   },
   "deploy": {
-    "startCommand": "pnpm --filter api prisma:deploy && node apps/api/dist/index.js",
+    "startCommand": "pnpm --filter api prisma:resolve-failed && pnpm --filter api prisma:deploy && node apps/api/dist/index.js",
     "healthcheckPath": "/health",
     "healthcheckTimeout": 30,
     "restartPolicyType": "ON_FAILURE"
