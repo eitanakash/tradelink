@@ -5,7 +5,7 @@
     "buildCommand": "corepack enable && corepack prepare pnpm@9.15.0 --activate && pnpm install --no-frozen-lockfile && pnpm --filter web build"
   },
   "deploy": {
-    "startCommand": "npx serve@14 -s apps/web/dist -p $PORT",
+    "startCommand": "npx --yes serve@14 -s apps/web/dist -p $PORT",
     "restartPolicyType": "ON_FAILURE"
   }
 }
