@@ -43,11 +43,20 @@ app.register(rateLimit, {
   keyGenerator: (req: FastifyRequest) => req.ip,
 })
 
-const corsOrigins = isProd
-  ? [process.env.FRONTEND_URL, process.env.ADMIN_URL].filter(Boolean) as string[]
-  : ['http://localhost:5173', 'http://localhost:5174']
+const corsOrigins = [
+  'http://localhost:5173',
+  'http://localhost:5174',
+  'https://travajos.com',
+  'https://www.travajos.com',
+  'https://admin.travajos.com',
+  process.env.FRONTEND_URL,
+  process.env.ADMIN_URL
+].filter(Boolean) as string[]
 
-app.register(cors, { origin: corsOrigins })
+app.register(cors, { 
+  origin: corsOrigins,
+  credentials: true 
+})
 app.register(multipart, { limits: { fileSize: 50 * 1024 * 1024 } })
 app.register(jwt, {
   secret: process.env.JWT_SECRET || 'changeme-set-jwt-secret-in-env',
