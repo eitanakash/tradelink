@@ -5,16 +5,27 @@ Travajos — home services marketplace monorepo
 Remote: git remote named "tradelink" (not origin)
 
 ## Git workflow
-- Never push directly to main
-- Always create a feature/fix/chore branch first
+- Before starting ANY task:
+  1. git checkout main
+  2. git pull tradelink main
+  3. Create a new branch from the updated main
+
 - Branch naming: type/short-description
   Examples: fix/railway-build, feat/voice-intake
-- Commit format: "type: short description"
   Types: feat, fix, chore, refactor, docs
-- Always run TypeScript check before committing:
+
+- Commit format: "type: short description"
+  Always run TypeScript check before committing:
   cd apps/api && pnpm exec tsc --noEmit
   cd apps/web && pnpm exec tsc --noEmit
-- Push branch, never merge — I review and merge on GitHub
+
+- After pushing branch:
+  1. git checkout main
+  2. Confirm you are back on main before stopping
+  Never leave the repo on a feature branch between sessions
+
+- Never push directly to main
+- Never merge branches — I review and merge on GitHub
 
 ## Stack
 - Monorepo: pnpm workspaces
@@ -34,4 +45,5 @@ Remote: git remote named "tradelink" (not origin)
 - Never hardcode localhost URLs — use env vars
 - Never commit .env files
 - All API calls need credentials: "include" for cookies
-- Keep pnpm-lock.yaml at repo root, never in app subfolders
+- Keep pnpm-lock.yaml at repo root
+- Remote is named "tradelink" not "origin"
