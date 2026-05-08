@@ -8,8 +8,11 @@ import {
 } from '@aws-sdk/client-s3'
 import { randomUUID } from 'crypto'
 
-const isLocal = process.env.STORAGE_PROVIDER !== 's3'
+const isLocal = process.env.STORAGE_PROVIDER !== 'S3'
 const bucket = process.env.AWS_BUCKET_NAME || 'tradelink-uploads'
+
+// AWS_ENDPOINT is set for R2: https://<accountid>.r2.cloudflarestorage.com
+const endpoint = process.env.AWS_ENDPOINT
 
 const s3 = new S3Client(
   isLocal
@@ -28,6 +31,8 @@ const s3 = new S3Client(
           accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
           secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
         },
+        // R2 requires a custom endpoint and path-style URLs
+        ...(endpoint ? { endpoint, forcePathStyle: true } : {}),
       },
 )
 
@@ -61,6 +66,11 @@ function getPublicUrl(key: string): string {
   if (isLocal) {
     return `${process.env.MINIO_ENDPOINT || 'http://localhost:9000'}/${bucket}/${key}`
   }
+  // AWS_PUBLIC_URL = custom domain or R2 public URL, e.g. https://cdn.travajos.com
+  if (process.env.AWS_PUBLIC_URL) {
+    return `${process.env.AWS_PUBLIC_URL}/${key}`
+  }
+  // Standard AWS S3 public URL
   return `https://${bucket}.s3.${process.env.AWS_REGION || 'us-east-1'}.amazonaws.com/${key}`
 }
 
