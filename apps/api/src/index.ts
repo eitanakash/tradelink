@@ -49,13 +49,14 @@ const corsOrigins = [
   'https://travajos.com',
   'https://www.travajos.com',
   'https://admin.travajos.com',
+  'https://api.travajos.com',
   process.env.FRONTEND_URL,
   process.env.ADMIN_URL
 ].filter(Boolean) as string[]
 
-app.register(cors, { 
+app.register(cors, {
   origin: corsOrigins,
-  credentials: true 
+  credentials: true
 })
 app.register(multipart, { limits: { fileSize: 50 * 1024 * 1024 } })
 app.register(jwt, {
