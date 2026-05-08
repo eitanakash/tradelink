@@ -20,6 +20,9 @@ importers:
       react-dom:
         specifier: ^18.3.1
         version: 18.3.1(react@18.3.1)
+      serve:
+        specifier: ^14.0.0
+        version: 14.2.6
     devDependencies:
       '@types/react':
         specifier: ^18.3.5
@@ -36,9 +39,6 @@ importers:
       postcss:
         specifier: ^8.4.47
         version: 8.5.10
-      serve:
-        specifier: ^14.0.0
-        version: 14.2.6
       tailwindcss:
         specifier: ^3.4.13
         version: 3.4.19(tsx@4.21.0)
@@ -133,6 +133,9 @@ importers:
       react-dom:
         specifier: ^18.3.1
         version: 18.3.1(react@18.3.1)
+      serve:
+        specifier: ^14.0.0
+        version: 14.2.6
     devDependencies:
       '@types/react':
         specifier: ^18.3.5
@@ -149,9 +152,6 @@ importers:
       postcss:
         specifier: ^8.4.47
         version: 8.5.10
-      serve:
-        specifier: ^14.0.0
-        version: 14.2.6
       tailwindcss:
         specifier: ^3.4.13
         version: 3.4.19(tsx@4.21.0)
