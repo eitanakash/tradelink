@@ -6,7 +6,7 @@
     "build": "tsc --project tsconfig.json",
     "start": "node dist/index.js",
     "postinstall": "prisma generate",
-    "prisma:push": "prisma db push",
+    "prisma:push": "prisma db push --accept-data-loss",
     "db:generate": "sh -c 'set -a; . ../../.env; set +a; prisma generate'",
     "db:migrate": "sh -c 'set -a; . ../../.env; set +a; prisma migrate dev'",
     "db:push": "sh -c 'set -a; . ../../.env; set +a; prisma db push'",
