@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { API_URL } from '../lib/api'
 
-export function LoginPage({ onLogin }: { onLogin: (token: string) => void }) {
+export function LoginPage({ onLogin }: { onLogin: (token: string, email: string) => void }) {
   const [email, setEmail] = useState('admin@tradelink.com')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -18,7 +18,7 @@ export function LoginPage({ onLogin }: { onLogin: (token: string) => void }) {
         body: JSON.stringify({ email, password }),
       })
       const data = await res.json()
-      if (res.ok) onLogin(data.token)
+      if (res.ok) onLogin(data.token, email)
       else setError(data.error ?? 'Login failed')
     } catch {
       setError('Network error')
