@@ -16,3 +16,27 @@ export async function apiFetch(path: string, options: RequestInit = {}) {
   })
   return res
 }
+
+export async function changePassword(currentPassword: string, newPassword: string) {
+  const res = await apiFetch('/account/change-password', {
+    method: 'POST',
+    body: JSON.stringify({ currentPassword, newPassword }),
+  })
+  if (!res.ok) {
+    const error = await res.json()
+    throw new Error(error.error || 'Failed to change password')
+  }
+  return res.json()
+}
+
+export async function resetUserPassword(userId: string, newPassword: string) {
+  const res = await apiFetch('/admin/reset-password', {
+    method: 'POST',
+    body: JSON.stringify({ userId, newPassword }),
+  })
+  if (!res.ok) {
+    const error = await res.json()
+    throw new Error(error.error || 'Failed to reset password')
+  }
+  return res.json()
+}
