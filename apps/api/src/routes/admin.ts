@@ -162,6 +162,26 @@ export async function adminRoutes(app: FastifyInstance) {
     return updated
   })
 
+  // POST /admin/reset-password
+  app.post<{ Body: { userId: string; newPassword: string } }>('/admin/reset-password', { onRequest: [adminOnly] }, async (request, reply) => {
+    const adminId = (request.user as any).id
+    const { userId, newPassword } = request.body
+
+    if (!userId || !newPassword) return reply.code(400).send({ error: 'Missing userId or newPassword' })
+    if (newPassword.length < 8) return reply.code(400).send({ error: 'Password must be at least 8 characters' })
+
+    const user = await prisma.user.findUnique({ where: { id: userId } })
+    if (!user) return reply.code(404).send({ error: 'User not found' })
+
+    const passwordHash = await bcrypt.hash(newPassword, 10)
+    await prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash },
+    })
+    await logAction(adminId, 'PASSWORD_RESET', userId, 'USER')
+    return { ok: true }
+  })
+
   // PATCH /admin/users/:id/verify-contractor
   app.patch<{ Params: { id: string } }>('/admin/users/:id/verify-contractor', { onRequest: [adminOnly] }, async (request, reply) => {
     const adminId = (request.user as any).id
