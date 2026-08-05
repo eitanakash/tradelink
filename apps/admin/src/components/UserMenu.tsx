@@ -1,14 +1,17 @@
 import { useState, useRef, useEffect } from 'react'
 
 interface Props {
-  email: string
+  email?: string
   onChangePassword: () => void
   onLogout: () => void
 }
 
-export function UserMenu({ email, onChangePassword, onLogout }: Props) {
+export function UserMenu({ email = '', onChangePassword, onLogout }: Props) {
   const [isOpen, setIsOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
+
+  const initial = (email.charAt(0) || 'A').toUpperCase()
+  const displayEmail = email || 'Admin'
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -30,9 +33,9 @@ export function UserMenu({ email, onChangePassword, onLogout }: Props) {
         className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
       >
         <div className="w-8 h-8 bg-slate-400 rounded-full flex items-center justify-center text-white font-bold">
-          {email[0].toUpperCase()}
+          {initial}
         </div>
-        <span className="hidden sm:inline max-w-xs truncate">{email}</span>
+        <span className="hidden sm:inline max-w-xs truncate">{displayEmail}</span>
         <svg
           className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`}
           fill="none"
@@ -46,7 +49,7 @@ export function UserMenu({ email, onChangePassword, onLogout }: Props) {
       {isOpen && (
         <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
           <div className="px-4 py-3 border-b border-gray-200">
-            <div className="text-sm font-medium text-gray-900">{email}</div>
+            <div className="text-sm font-medium text-gray-900">{displayEmail}</div>
           </div>
           <button
             onClick={() => {

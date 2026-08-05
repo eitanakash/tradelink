@@ -21,7 +21,7 @@ const NAV_ITEMS: { id: Page; label: string; icon: string }[] = [
   { id: 'settings', label: 'Settings', icon: '⚙️' },
 ]
 
-export function AdminLayout({ email, onLogout }: { email: string; onLogout: () => void }) {
+export function AdminLayout({ email = '', onLogout }: { email?: string; onLogout: () => void }) {
   const [page, setPage] = useState<Page>('dashboard')
   const [passwordModalOpen, setPasswordModalOpen] = useState(false)
 
