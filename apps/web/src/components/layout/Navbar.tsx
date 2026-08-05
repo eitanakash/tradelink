@@ -4,6 +4,7 @@ import { AvatarDropdown } from './AvatarDropdown'
 import { MobileMenu } from './MobileMenu'
 import { NotificationBell } from '../NotificationBell'
 import { useT } from '../../lib/i18n'
+import { API_URL } from '../../lib/api'
 
 type Lang = 'en' | 'es'
 
@@ -39,9 +40,21 @@ export function Navbar({
   const [showDropdown, setShowDropdown] = useState(false)
   const [showMobileMenu, setShowMobileMenu] = useState(false)
   const [showLangMenu, setShowLangMenu] = useState(false)
+  const [showFindContractors, setShowFindContractors] = useState(false)
   const langRef = useRef<HTMLDivElement>(null)
   const isClient = activeMode === 'CLIENT'
   const initial = user.name?.charAt(0).toUpperCase() ?? user.email.charAt(0).toUpperCase()
+
+  useEffect(() => {
+    fetch(`${API_URL}/settings`)
+      .then<Record<string, string>>((r) => (r.ok ? r.json() : {}))
+      .then((data) => {
+        if (data.showFindContractors === 'true') {
+          setShowFindContractors(true)
+        }
+      })
+      .catch(() => {})
+  }, [])
 
   useEffect(() => {
     const onMouseDown = (e: MouseEvent) => {
@@ -91,9 +104,11 @@ export function Navbar({
               <button onClick={() => onNavigate('post-job')} className={navLinkCls('post-job')}>
                 {t('navPostJob')}
               </button>
-              <button onClick={() => onNavigate('find-contractors')} className={navLinkCls('find-contractors')}>
-                {t('navFindContractors')}
-              </button>
+              {showFindContractors && (
+                <button onClick={() => onNavigate('find-contractors')} className={navLinkCls('find-contractors')}>
+                  {t('navFindContractors')}
+                </button>
+              )}
             </>
           ) : (
             <>
@@ -208,6 +223,7 @@ export function Navbar({
               <AvatarDropdown
                 user={user}
                 activeMode={activeMode}
+                showFindContractors={showFindContractors}
                 onModeChange={onModeChange}
                 onNavigate={onNavigate}
                 onLogout={onLogout}
@@ -242,6 +258,7 @@ export function Navbar({
           activePage={activePage}
           msgUnread={msgUnread}
           notifUnread={notifUnread}
+          showFindContractors={showFindContractors}
           onModeChange={onModeChange}
           onNavigate={onNavigate}
           onLogout={onLogout}

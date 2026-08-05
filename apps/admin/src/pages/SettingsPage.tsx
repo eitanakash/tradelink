@@ -50,6 +50,17 @@ export function SettingsPage() {
           </button>
         </div>
 
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="font-medium text-gray-900">Show Find Contractors Tab</p>
+            <p className="text-sm text-gray-500">Show or hide the Find Contractors tab in client app navigation</p>
+          </div>
+          <button onClick={() => update('showFindContractors', settings.showFindContractors === 'true' ? 'false' : 'true')}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${settings.showFindContractors === 'true' ? 'bg-green-600' : 'bg-gray-200'}`}>
+            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${settings.showFindContractors === 'true' ? 'translate-x-6' : 'translate-x-1'}`} />
+          </button>
+        </div>
+
         <div className="border-t border-gray-100 pt-4 grid grid-cols-2 gap-4">
           {[
             { key: 'maxQuotesPerJob', label: 'Max Quotes per Job', type: 'number' },

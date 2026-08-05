@@ -8,6 +8,7 @@ interface Props {
   activePage: string
   msgUnread: number
   notifUnread: number
+  showFindContractors?: boolean
   onModeChange: (mode: ActiveMode) => void
   onNavigate: (page: string) => void
   onLogout: () => void
@@ -19,6 +20,7 @@ export function MobileMenu({
   activeMode,
   activePage,
   msgUnread,
+  showFindContractors,
   onModeChange,
   onNavigate,
   onLogout,
@@ -112,9 +114,11 @@ export function MobileMenu({
               <button onClick={() => nav('my-jobs')} className={linkCls('my-jobs')}>
                 {t('myJobsMenu')}
               </button>
-              <button onClick={() => nav('find-contractors')} className={linkCls('find-contractors')}>
-                {t('findContractorsMenu')}
-              </button>
+              {showFindContractors && (
+                <button onClick={() => nav('find-contractors')} className={linkCls('find-contractors')}>
+                  {t('findContractorsMenu')}
+                </button>
+              )}
               <button onClick={() => nav('messages')} className={linkCls('messages')}>
                 {t('messagesMenu')}
                 <Badge count={msgUnread} />

@@ -145,6 +145,7 @@ export async function jobRoutes(app: FastifyInstance) {
           include: { trades: { select: { id: true } } },
         })
         if (!contractor) return reply.status(403).send({ error: 'Contractor profile required' })
+        if (!contractor.isVerified) return reply.status(403).send({ error: 'VERIFICATION_REQUIRED', message: 'Contractor verification required to view jobs' })
         const tradeCategoryIds = contractor.trades.map((t) => t.id)
         const jobs = await prisma.job.findMany({
           where: {
@@ -198,7 +199,7 @@ export async function jobRoutes(app: FastifyInstance) {
 
       if (!isOwner) {
         const contractor = await prisma.contractorProfile.findUnique({ where: { userId: request.user.id } })
-        if (!contractor) return reply.status(403).send({ error: 'Access denied' })
+        if (!contractor || !contractor.isVerified) return reply.status(403).send({ error: 'VERIFICATION_REQUIRED', message: 'Contractor verification required' })
         return { ...job, quotes: job.quotes.filter((q) => q.contractorId === contractor.id) }
       }
       return job
@@ -224,6 +225,7 @@ export async function jobRoutes(app: FastifyInstance) {
 
       const contractor = await prisma.contractorProfile.findUnique({ where: { userId: request.user.id } })
       if (!contractor) return reply.status(403).send({ error: 'Contractor profile required' })
+      if (!contractor.isVerified) return reply.status(403).send({ error: 'VERIFICATION_REQUIRED', message: 'Your contractor profile must be verified by an administrator to submit quotes' })
 
       const job = await prisma.job.findUnique({ where: { id: request.params.id } })
       if (!job) return reply.status(404).send({ error: 'Job not found' })

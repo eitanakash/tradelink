@@ -5,13 +5,14 @@ import { useT } from '../../lib/i18n'
 interface Props {
   user: UserProfile
   activeMode: ActiveMode
+  showFindContractors?: boolean
   onModeChange: (mode: ActiveMode) => void
   onNavigate: (page: string) => void
   onLogout: () => void
   onClose: () => void
 }
 
-export function AvatarDropdown({ user, activeMode, onModeChange, onNavigate, onLogout, onClose }: Props) {
+export function AvatarDropdown({ user, activeMode, showFindContractors, onModeChange, onNavigate, onLogout, onClose }: Props) {
   const { t } = useT()
   const ref = useRef<HTMLDivElement>(null)
 
@@ -92,9 +93,11 @@ export function AvatarDropdown({ user, activeMode, onModeChange, onNavigate, onL
             <button onClick={() => nav('my-jobs')} className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
               {t('myJobsMenu')}
             </button>
-            <button onClick={() => nav('find-contractors')} className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
-              {t('findContractorsMenu')}
-            </button>
+            {showFindContractors && (
+              <button onClick={() => nav('find-contractors')} className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+                {t('findContractorsMenu')}
+              </button>
+            )}
             <button onClick={() => nav('messages')} className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
               {t('messagesMenu')}
             </button>
