@@ -14,6 +14,7 @@ export async function contractorsRoutes(app: FastifyInstance) {
       const contractors = await prisma.contractorProfile.findMany({
         where: {
           slug: { not: null },
+          isVerified: true,
           ...(state ? { state } : {}),
           ...(trade ? { trades: { some: { id: trade } } } : {}),
         },
@@ -39,6 +40,7 @@ export async function contractorsRoutes(app: FastifyInstance) {
       const total = await prisma.contractorProfile.count({
         where: {
           slug: { not: null },
+          isVerified: true,
           ...(state ? { state } : {}),
           ...(trade ? { trades: { some: { id: trade } } } : {}),
         },
@@ -69,7 +71,7 @@ export async function contractorsRoutes(app: FastifyInstance) {
           },
         },
       })
-      if (!contractor) return reply.code(404).send({ error: 'Not found' })
+      if (!contractor || !contractor.isVerified) return reply.code(404).send({ error: 'Not found' })
 
       const profileFiles = await prisma.fileUpload.findMany({
         where: {

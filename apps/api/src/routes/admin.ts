@@ -192,6 +192,16 @@ export async function adminRoutes(app: FastifyInstance) {
     return { ok: true }
   })
 
+  // PATCH /admin/users/:id/unverify-contractor
+  app.patch<{ Params: { id: string } }>('/admin/users/:id/unverify-contractor', { onRequest: [adminOnly] }, async (request, reply) => {
+    const adminId = (request.user as any).id
+    const user = await prisma.user.findUnique({ where: { id: request.params.id }, include: { contractorProfile: true } })
+    if (!user?.contractorProfile) return reply.code(400).send({ error: 'No contractor profile' })
+    await prisma.contractorProfile.update({ where: { id: user.contractorProfile.id }, data: { isVerified: false, isFeatured: false } })
+    await logAction(adminId, 'CONTRACTOR_UNVERIFIED', request.params.id, 'USER')
+    return { ok: true }
+  })
+
   // PATCH /admin/users/:id/feature-contractor
   app.patch<{ Params: { id: string } }>('/admin/users/:id/feature-contractor', { onRequest: [adminOnly] }, async (request, reply) => {
     const adminId = (request.user as any).id
@@ -393,6 +403,12 @@ export async function adminRoutes(app: FastifyInstance) {
     ])
     await logAction(adminId, 'REVIEW_DELETED', request.params.id, 'REVIEW', request.body.reason)
     return { ok: true }
+  })
+
+  // GET /settings (public settings)
+  app.get('/settings', async () => {
+    const settings = await prisma.platformSetting.findMany()
+    return Object.fromEntries(settings.map((s: any) => [s.key, s.value]))
   })
 
   // GET /admin/settings
