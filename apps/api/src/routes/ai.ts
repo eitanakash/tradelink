@@ -7,6 +7,29 @@ import { getIntakePrompt } from '../prompts/intake'
 
 const SESSION_TTL = 60 * 60 * 2 // 2 hours
 
+const askIntakeQuestionTool = {
+  name: 'ask_intake_question',
+  description: 'Ask the homeowner the next single, concise intake question with four quick answers.',
+  input_schema: {
+    type: 'object' as const,
+    properties: {
+      question: {
+        type: 'string',
+        minLength: 1,
+        description: 'One short question, about 18 words or fewer',
+      },
+      options: {
+        type: 'array',
+        minItems: 4,
+        maxItems: 4,
+        items: { type: 'string', minLength: 1 },
+        description: 'Exactly four short, relevant answers; never include an Other option',
+      },
+    },
+    required: ['question', 'options'],
+  },
+}
+
 const completeIntakeTool = {
   name: 'complete_intake',
   description:
@@ -64,6 +87,7 @@ interface IntakeSession {
   jobSummary: any | null
   isComplete: boolean
   pendingToolUseId: string | null
+  pendingQuestionToolUseId: string | null
 }
 
 async function getSession(sessionId: string): Promise<IntakeSession | null> {
@@ -92,7 +116,7 @@ export async function aiRoutes(app: FastifyInstance) {
       const category = await prisma.tradeCategory.findUnique({ where: { id: categoryId } })
       if (!category) return reply.status(404).send({ error: 'Category not found' })
 
-      const { firstMessage } = getIntakePrompt(category.name)
+      const { firstMessage, firstOptions } = getIntakePrompt(category.name)
       const sessionId = randomUUID()
 
       const session: IntakeSession = {
@@ -103,10 +127,11 @@ export async function aiRoutes(app: FastifyInstance) {
         jobSummary: null,
         isComplete: false,
         pendingToolUseId: null,
+        pendingQuestionToolUseId: null,
       }
       await saveSession(sessionId, session)
 
-      return { sessionId, firstMessage }
+      return { sessionId, firstMessage, quickReplies: firstOptions }
     },
   )
 
@@ -170,6 +195,20 @@ export async function aiRoutes(app: FastifyInstance) {
               : [{ type: 'text', text: message }]),
           ],
         })
+      } else if (session.pendingQuestionToolUseId) {
+        newApiMessages.push({
+          role: 'user' as const,
+          content: [
+            {
+              type: 'tool_result',
+              tool_use_id: session.pendingQuestionToolUseId,
+              content: `The homeowner answered: ${message}`,
+            },
+            ...(Array.isArray(userApiMessage.content)
+              ? userApiMessage.content
+              : [{ type: 'text', text: message }]),
+          ],
+        })
       } else {
         newApiMessages.push(userApiMessage)
       }
@@ -178,7 +217,8 @@ export async function aiRoutes(app: FastifyInstance) {
         model: 'claude-sonnet-4-6',
         max_tokens: 1000,
         system,
-        tools: [completeIntakeTool as any],
+        tools: [askIntakeQuestionTool as any, completeIntakeTool as any],
+        tool_choice: { type: 'any' },
         messages: newApiMessages,
       })
 
@@ -186,10 +226,24 @@ export async function aiRoutes(app: FastifyInstance) {
       let isComplete = false
       let jobSummary: any = null
       let pendingToolUseId: string | null = null
+      let pendingQuestionToolUseId: string | null = null
+      let quickReplies: string[] = []
 
       for (const block of response.content) {
         if (block.type === 'text') {
           reply_text += block.text
+        } else if (block.type === 'tool_use' && block.name === 'ask_intake_question') {
+          const input = block.input as { question?: unknown; options?: unknown }
+          if (
+            typeof input.question === 'string' &&
+            Array.isArray(input.options) &&
+            input.options.length === 4 &&
+            input.options.every((option) => typeof option === 'string')
+          ) {
+            reply_text = input.question.trim()
+            quickReplies = input.options.map((option) => option.trim())
+            pendingQuestionToolUseId = block.id
+          }
         } else if (block.type === 'tool_use' && block.name === 'complete_intake') {
           isComplete = true
           jobSummary = block.input
@@ -212,15 +266,17 @@ export async function aiRoutes(app: FastifyInstance) {
         session.isComplete = true
         session.jobSummary = jobSummary
         session.pendingToolUseId = pendingToolUseId
+        session.pendingQuestionToolUseId = null
       } else {
         session.isComplete = false
         session.jobSummary = null
         session.pendingToolUseId = null
+        session.pendingQuestionToolUseId = pendingQuestionToolUseId
       }
 
       await saveSession(sessionId, session)
 
-      return { reply: reply_text, isComplete, jobSummary }
+      return { reply: reply_text, quickReplies, isComplete, jobSummary }
     },
   )
 
