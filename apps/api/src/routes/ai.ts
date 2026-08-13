@@ -4,15 +4,20 @@ import { prisma } from '../lib/prisma'
 import { redis } from '../lib/redis'
 import { anthropic } from '../lib/anthropic'
 import { getIntakePrompt } from '../prompts/intake'
+import { parseIntakeResponse, pendingQuestionResult } from '../services/intake-response'
 
 const SESSION_TTL = 60 * 60 * 2 // 2 hours
 
 const askIntakeQuestionTool = {
   name: 'ask_intake_question',
-  description: 'Ask the homeowner the next single, concise intake question with four quick answers.',
+  description: 'Respond helpfully if needed, then ask the next single, concise intake question with relevant quick answers.',
   input_schema: {
     type: 'object' as const,
     properties: {
+      message: {
+        type: 'string',
+        description: 'Optional brief answer to the homeowner clarification before the question. Do not repeat known facts.',
+      },
       question: {
         type: 'string',
         minLength: 1,
@@ -20,10 +25,10 @@ const askIntakeQuestionTool = {
       },
       options: {
         type: 'array',
-        minItems: 4,
+        minItems: 2,
         maxItems: 4,
         items: { type: 'string', minLength: 1 },
-        description: 'Exactly four short, relevant answers; never include an Other option',
+        description: 'Two to four short, relevant answers. Use four whenever four sensible choices exist; never include Other.',
       },
     },
     required: ['question', 'options'],
@@ -69,13 +74,27 @@ const completeIntakeTool = {
         items: { type: 'string' },
         description: 'Any special requirements, preferences, or constraints',
       },
+      siteConditions: {
+        type: 'array',
+        items: { type: 'string' },
+        description: 'Access, existing-system condition, damage, hazards, occupied-site, or other pricing-relevant conditions',
+      },
+      preferences: {
+        type: 'array',
+        items: { type: 'string' },
+        description: 'Material, brand, finish, performance, or service preferences',
+      },
+      budget: {
+        type: 'string',
+        description: 'Budget or pricing expectation if volunteered; otherwise "Not provided"',
+      },
       estimatedComplexity: {
         type: 'string',
         enum: ['simple', 'moderate', 'complex'],
         description: 'Overall complexity of the job',
       },
     },
-    required: ['title', 'description', 'scopeOfWork', 'propertyDetails', 'timeline', 'specialRequirements', 'estimatedComplexity'],
+    required: ['title', 'description', 'scopeOfWork', 'propertyDetails', 'timeline', 'siteConditions', 'preferences', 'budget', 'specialRequirements', 'estimatedComplexity'],
   },
 }
 
@@ -88,6 +107,7 @@ interface IntakeSession {
   isComplete: boolean
   pendingToolUseId: string | null
   pendingQuestionToolUseId: string | null
+  intakeQuestionCount: number
 }
 
 async function getSession(sessionId: string): Promise<IntakeSession | null> {
@@ -123,11 +143,14 @@ export async function aiRoutes(app: FastifyInstance) {
         categoryId,
         categoryName: category.name,
         displayMessages: [{ role: 'assistant', content: firstMessage }],
-        apiMessages: [],
+        // Seed the model-visible transcript so a first-turn clarification can refer
+        // to the question the homeowner actually saw.
+        apiMessages: [{ role: 'assistant', content: firstMessage }],
         jobSummary: null,
         isComplete: false,
         pendingToolUseId: null,
         pendingQuestionToolUseId: null,
+        intakeQuestionCount: 1,
       }
       await saveSession(sessionId, session)
 
@@ -154,6 +177,7 @@ export async function aiRoutes(app: FastifyInstance) {
       if (!session) return reply.status(404).send({ error: 'Session not found or expired' })
 
       const { system } = getIntakePrompt(session.categoryName)
+      const questionCount = session.intakeQuestionCount ?? 1
 
       // Build user content — fetch images from storage and convert to base64 for Claude
       const userContent: any[] = []
@@ -202,11 +226,8 @@ export async function aiRoutes(app: FastifyInstance) {
             {
               type: 'tool_result',
               tool_use_id: session.pendingQuestionToolUseId,
-              content: `The homeowner answered: ${message}`,
+              content: pendingQuestionResult(message),
             },
-            ...(Array.isArray(userApiMessage.content)
-              ? userApiMessage.content
-              : [{ type: 'text', text: message }]),
           ],
         })
       } else {
@@ -216,44 +237,19 @@ export async function aiRoutes(app: FastifyInstance) {
       const response = await anthropic.messages.create({
         model: 'claude-sonnet-4-6',
         max_tokens: 1000,
-        system,
+        system: `${system}\n\nYou have asked ${questionCount} intake question(s). Do not exceed 6 total; by then complete with the best available facts. Clarification requests do not count as answers and must not discard earlier answers.`,
         tools: [askIntakeQuestionTool as any, completeIntakeTool as any],
         tool_choice: { type: 'any' },
         messages: newApiMessages,
       })
 
-      let reply_text = ''
-      let isComplete = false
-      let jobSummary: any = null
-      let pendingToolUseId: string | null = null
-      let pendingQuestionToolUseId: string | null = null
-      let quickReplies: string[] = []
-
-      for (const block of response.content) {
-        if (block.type === 'text') {
-          reply_text += block.text
-        } else if (block.type === 'tool_use' && block.name === 'ask_intake_question') {
-          const input = block.input as { question?: unknown; options?: unknown }
-          if (
-            typeof input.question === 'string' &&
-            Array.isArray(input.options) &&
-            input.options.length === 4 &&
-            input.options.every((option) => typeof option === 'string')
-          ) {
-            reply_text = input.question.trim()
-            quickReplies = input.options.map((option) => option.trim())
-            pendingQuestionToolUseId = block.id
-          }
-        } else if (block.type === 'tool_use' && block.name === 'complete_intake') {
-          isComplete = true
-          jobSummary = block.input
-          pendingToolUseId = block.id
-          if (!reply_text) {
-            reply_text =
-              "I have everything I need to write up your job posting. Take a look at the summary below — if it looks good, you can confirm it. Otherwise, just keep chatting and I'll update it."
-          }
-        }
-      }
+      const parsed = parseIntakeResponse(response.content as any)
+      const reply_text = parsed.reply
+      const isComplete = parsed.isComplete
+      const jobSummary = parsed.jobSummary
+      const pendingToolUseId = parsed.completionToolUseId
+      const pendingQuestionToolUseId = parsed.question?.toolUseId ?? null
+      const quickReplies = parsed.question?.options ?? []
 
       // Store assistant message in API format
       newApiMessages.push({ role: 'assistant', content: response.content })
@@ -272,6 +268,7 @@ export async function aiRoutes(app: FastifyInstance) {
         session.jobSummary = null
         session.pendingToolUseId = null
         session.pendingQuestionToolUseId = pendingQuestionToolUseId
+        if (pendingQuestionToolUseId) session.intakeQuestionCount = questionCount + 1
       }
 
       await saveSession(sessionId, session)

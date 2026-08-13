@@ -3,6 +3,8 @@ import type { TradeCategory, JobSummary } from '@tradelink/types'
 import { API_URL } from '../../lib/api'
 import { US_STATES } from '../../lib/states'
 import { useT } from '../../lib/i18n'
+import { QuickReplyChoices } from './QuickReplyChoices'
+import { resolveChatAnswer } from './chat-answer'
 
 interface Props {
   onClose: () => void
@@ -114,7 +116,7 @@ export function PostJobModal({ onClose, onCreated }: Props) {
   }
 
   const handleSend = async (quickReply?: string) => {
-    const text = quickReply?.trim() || input.trim()
+    const text = resolveChatAnswer(input, quickReply)
     if (!text && pendingFiles.length === 0) return
     if (waiting) return
 
@@ -397,23 +399,12 @@ export function PostJobModal({ onClose, onCreated }: Props) {
                         {msg.content}
                       </div>
                     )}
-                    {msg.role === 'assistant' && msg.quickReplies?.length === 4 && (
-                      <div className="grid w-full grid-cols-2 gap-2 pt-1">
-                        {msg.quickReplies.map((option) => {
-                          const isLatestQuestion = i === messages.length - 1 && !waiting && !isComplete
-                          return (
-                            <button
-                              key={option}
-                              type="button"
-                              onClick={() => handleSend(option)}
-                              disabled={!isLatestQuestion}
-                              className="rounded-xl border border-blue-200 bg-white px-3 py-2 text-left text-xs font-medium text-blue-700 transition-colors hover:border-blue-400 hover:bg-blue-50 disabled:cursor-default disabled:border-gray-200 disabled:text-gray-400 disabled:hover:bg-white"
-                            >
-                              {option}
-                            </button>
-                          )
-                        })}
-                      </div>
+                    {msg.role === 'assistant' && msg.quickReplies && (
+                      <QuickReplyChoices
+                        options={msg.quickReplies}
+                        disabled={i !== messages.length - 1 || waiting || isComplete}
+                        onSelect={handleSend}
+                      />
                     )}
                   </div>
                 </div>
@@ -568,6 +559,23 @@ export function PostJobModal({ onClose, onCreated }: Props) {
                   </ul>
                 </div>
               )}
+
+              {(jobSummary.siteConditions ?? []).length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Site conditions</p>
+                  <ul>{jobSummary.siteConditions.map((item, i) => <li key={i} className="text-sm text-gray-600">• {item}</li>)}</ul>
+                </div>
+              )}
+              {(jobSummary.preferences ?? []).length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Preferences</p>
+                  <ul>{jobSummary.preferences.map((item, i) => <li key={i} className="text-sm text-gray-600">• {item}</li>)}</ul>
+                </div>
+              )}
+              <div>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Budget</p>
+                <p className="text-sm text-gray-600">{jobSummary.budget || 'Not provided'}</p>
+              </div>
             </div>
 
             {/* Location form */}

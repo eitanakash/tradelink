@@ -150,6 +150,9 @@ export interface JobSummary {
     floors?: string
   }
   timeline: string
+  siteConditions: string[]
+  preferences: string[]
+  budget: string
   specialRequirements: string[]
   estimatedComplexity: 'simple' | 'moderate' | 'complex'
 }
