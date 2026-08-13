@@ -91,7 +91,7 @@ export function Navbar({
           onClick={homeNav}
           className="text-xl font-bold text-pink-600 shrink-0 mr-2"
         >
-          TradeLinkTwice
+          Travajos
         </button>
 
         {/* Desktop center nav */}
