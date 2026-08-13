@@ -14,6 +14,7 @@ type Step = 'category' | 'chat' | 'review' | 'manual'
 interface ChatMessage {
   role: 'user' | 'assistant'
   content: string
+  quickReplies?: string[]
   attachments?: { name: string; preview: string; isImage: boolean }[]
 }
 
@@ -104,7 +105,7 @@ export function PostJobModal({ onClose, onCreated }: Props) {
       const data = await res.json()
       if (!res.ok) { setChatError(data.error ?? 'Failed to start session'); return }
       setSessionId(data.sessionId)
-      setMessages([{ role: 'assistant', content: data.firstMessage }])
+      setMessages([{ role: 'assistant', content: data.firstMessage, quickReplies: data.quickReplies }])
     } catch {
       setChatError('Network error. Please try again.')
     } finally {
@@ -112,8 +113,8 @@ export function PostJobModal({ onClose, onCreated }: Props) {
     }
   }
 
-  const handleSend = async () => {
-    const text = input.trim()
+  const handleSend = async (quickReply?: string) => {
+    const text = quickReply?.trim() || input.trim()
     if (!text && pendingFiles.length === 0) return
     if (waiting) return
 
@@ -161,7 +162,10 @@ export function PostJobModal({ onClose, onCreated }: Props) {
       const data = await res.json()
       if (!res.ok) { setChatError(data.error ?? 'Something went wrong'); return }
 
-      setMessages((prev) => [...prev, { role: 'assistant', content: data.reply }])
+      setMessages((prev) => [
+        ...prev,
+        { role: 'assistant', content: data.reply, quickReplies: data.quickReplies },
+      ])
 
       if (data.isComplete) {
         setIsComplete(true)
@@ -393,6 +397,24 @@ export function PostJobModal({ onClose, onCreated }: Props) {
                         {msg.content}
                       </div>
                     )}
+                    {msg.role === 'assistant' && msg.quickReplies?.length === 4 && (
+                      <div className="grid w-full grid-cols-2 gap-2 pt-1">
+                        {msg.quickReplies.map((option) => {
+                          const isLatestQuestion = i === messages.length - 1 && !waiting && !isComplete
+                          return (
+                            <button
+                              key={option}
+                              type="button"
+                              onClick={() => handleSend(option)}
+                              disabled={!isLatestQuestion}
+                              className="rounded-xl border border-blue-200 bg-white px-3 py-2 text-left text-xs font-medium text-blue-700 transition-colors hover:border-blue-400 hover:bg-blue-50 disabled:cursor-default disabled:border-gray-200 disabled:text-gray-400 disabled:hover:bg-white"
+                            >
+                              {option}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
@@ -476,7 +498,7 @@ export function PostJobModal({ onClose, onCreated }: Props) {
                 </button>
 
                 <button
-                  onClick={handleSend}
+                  onClick={() => handleSend()}
                   disabled={waiting || (!input.trim() && pendingFiles.length === 0)}
                   className="p-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white rounded-xl transition-colors shrink-0"
                 >
