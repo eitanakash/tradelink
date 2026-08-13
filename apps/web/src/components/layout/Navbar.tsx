@@ -89,7 +89,7 @@ export function Navbar({
         {/* Logo */}
         <button
           onClick={homeNav}
-          className="text-xl font-bold text-blue-600 shrink-0 mr-2"
+          className="text-xl font-bold text-pink-600 shrink-0 mr-2"
         >
           TradeLinkTwice
         </button>
